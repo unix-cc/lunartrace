@@ -89,3 +89,17 @@ $ git hook run commit-msg -- msg-good.txt     → PASS，exit=0
    **补救**：下一个 change 起，先在约定接缝写失败测试并运行确认失败，再写实现。
 2. **UI 无自动化验证**：本机无设备/模拟器，Compose 界面没有 instrumented 或截图测试。UI 正确性仅有"编译通过 + 按口径表人工核对"，**不声称已验证**。
 3. **无独立评审**：本文全部结论由同一模型自审产生，系统性盲区（尤其是自己没想到的边界）不会被自己发现。这是本仓库最大的结构性缺陷，无法通过机制消除。
+
+---
+
+## 附录（同日追加）：L2 的首次落地状态
+
+推送到 `git@github.com:unix-cc/lunartrace.git`（私有仓库）后：
+
+- `main` 上已有 2 个提交；CI 已随 push 被触发 **2 次**。
+- **结果未经验证**：开发机没有 `gh` CLI、没有任何 GitHub token，匿名 API 返回 404（私有仓库）。
+  因此 L2 目前的状态是"**已存在、已触发、未确认**"，不得当作生效的门禁。查看方式见 `DEVELOP.md` §2。
+- 顺带查出一个真实缺陷（正是"CI 只是纸面"的代价）：首次提交里 `gradlew` 的文件模式是 `100644`
+  （Windows 不记录 exec 位，`git ls-files -s` 可证），CI 执行 `./gradlew` 必然 `Permission denied`。
+  已修复：`git update-index --chmod=+x` 修正 `gradlew` 与 `scripts/` 下脚本，并在 workflow 里加 `chmod +x ./gradlew` 作为复发性问题的保险。
+- 结论照旧诚实：**在页面上看到一次绿色运行之前，"L2 门禁"这句话不成立。**

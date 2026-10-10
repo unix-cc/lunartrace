@@ -47,6 +47,12 @@ python scripts/check-docs.py             # 文档一致性（路由表目标存�
 - 检查内容：提交信息格式、隐私红线脚本、文档一致性脚本、`detekt`、`testDebugUnitTest`。
 - 性能策略：静态检查与测试由 Gradle 增量执行；Kotlin 文件未变更时跳过（`scripts/hooks/pre-commit` 内判断）。
 
+### 远端与 L2 的查看方式
+
+- 远端：`git@github.com:unix-cc/lunartrace.git`，默认分支 `main`（CI 的 `push` 触发条件写的是 `main`）。
+- 云端检查结果：<https://github.com/unix-cc/lunartrace/actions>。仓库是私有的，本地无法用匿名接口查询，只能看这个页面。
+- **把它设为 required status check 之前，先确认页面上至少出现过一次绿色运行。** 没有绿色运行就不算生效的门禁。
+
 ## 3. dev → test → build → release
 
 | 阶段 | 命令 | 产物 |
