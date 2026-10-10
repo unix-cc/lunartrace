@@ -38,9 +38,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.lunartrace.app.R
 import io.lunartrace.app.domain.model.CycleInsight
+import io.lunartrace.app.domain.model.CyclePosition
+import io.lunartrace.app.domain.prediction.CyclePredictor
 import io.lunartrace.app.ui.common.excludedSamplesText
 import io.lunartrace.app.ui.common.label
+import io.lunartrace.app.ui.common.labelOrNull
 import io.lunartrace.app.ui.common.monthDayText
+import io.lunartrace.app.ui.common.notEnoughRecordsText
 import io.lunartrace.app.ui.common.titleText
 import io.lunartrace.app.ui.lunartraceViewModelFactory
 import java.time.YearMonth
@@ -112,10 +116,13 @@ private fun PredictionCard(insight: CycleInsight) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             if (nextStart == null) {
-                Text(text = "还没有足够的记录", style = MaterialTheme.typography.titleMedium)
+                Text(text = "还不能给出预计", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "至少记录两次经期开始，才能给出预计。记录越多，预计越可靠。",
+                    text = notEnoughRecordsText(
+                        episodeCount = insight.stats.episodeCount,
+                        requiredEpisodes = CyclePredictor.MIN_EPISODES_FOR_PHASE,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -130,6 +137,15 @@ private fun PredictionCard(insight: CycleInsight) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // 排卵信息是**单日**：区间只保留"易孕窗口"一个，避免两个天数不同的区间互相打架（ADR-0004）
+                prediction.ovulationDay?.let { ovulationDay ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "排卵日预计 ${ovulationDay.monthDayText()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 val fertileWindow = prediction.fertileWindow
                 if (fertileWindow != null) {
                     Spacer(Modifier.height(4.dp))
@@ -141,8 +157,29 @@ private fun PredictionCard(insight: CycleInsight) {
                     )
                 }
             }
+            CurrentPositionLine(position = insight.position)
         }
     }
+}
+
+/**
+ * "今天处于哪个阶段 · 周期第几天"。
+ * 周期天数是事实，任何数据量下都显示；阶段是推算，`UNKNOWN` 时只显示事实那一半。
+ */
+@Composable
+private fun CurrentPositionLine(position: CyclePosition) {
+    val cycleDay = position.cycleDay ?: return
+    val phaseLabel = position.phase.labelOrNull()
+
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = if (phaseLabel == null) {
+            "今天是本次周期第 $cycleDay 天"
+        } else {
+            "今天处于$phaseLabel · 周期第 $cycleDay 天"
+        },
+        style = MaterialTheme.typography.titleSmall,
+    )
 }
 
 @Composable

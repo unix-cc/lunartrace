@@ -2,6 +2,8 @@ package io.lunartrace.app.domain.prediction
 
 import io.lunartrace.app.domain.model.Confidence
 import io.lunartrace.app.domain.model.CycleInsight
+import io.lunartrace.app.domain.model.CyclePhase
+import io.lunartrace.app.domain.model.CyclePosition
 import io.lunartrace.app.domain.model.CyclePrediction
 import io.lunartrace.app.domain.model.CycleStats
 import io.lunartrace.app.domain.model.PeriodEpisode
@@ -35,6 +37,15 @@ object CyclePredictor {
     /** 顺推上限：超过此次数仍追不上"今天"就放弃预测，而不是给出荒谬的远期日期。 */
     const val MAX_FORWARD_STEPS = 24
 
+    /** 排卵阶段的展示半径（天）：排卵日 ±1 视为 `OVULATION`。只用于阶段标签，不作为区间展示。 */
+    const val OVULATION_PHASE_RADIUS_DAYS = 1L
+
+    /**
+     * 会出现阶段与排卵日所需的最少经期段数：MEDIUM 需要 2 个有效周期长度，而 N 个周期长度需要 N+1 段经期。
+     * 仅用于向用户说明"还差几次记录"，不参与任何推算。
+     */
+    const val MIN_EPISODES_FOR_PHASE = 3
+
     /** 置信度判定的极差阈值与样本数阈值。 */
     const val STABLE_VARIABILITY_DAYS = 4
     const val UNSTABLE_VARIABILITY_DAYS = 7
@@ -57,12 +68,18 @@ object CyclePredictor {
             medianCycleLength = CycleMath.median(window),
             recentCycleLengths = window,
             averagePeriodLength = CycleMath.average(episodes.map { it.lengthDays }.takeLast(RECENT_SAMPLE_WINDOW)),
+            episodeCount = episodes.size,
             excludedCycleCount = allCycleLengths.size - validCycleLengths.size,
             validSampleCount = window.size,
             variabilityDays = variability(window),
         )
         val confidence = confidenceOf(stats)
-        return CycleInsight(stats = stats, prediction = predict(episodes, stats, confidence, today))
+        val prediction = predict(episodes, stats, confidence, today)
+        return CycleInsight(
+            stats = stats,
+            prediction = prediction,
+            position = positionOf(episodes, prediction, today),
+        )
     }
 
     /** 置信度分档。样本不足或波动过大时主动降级，宁可不展示也不误导。 */
@@ -119,6 +136,38 @@ object CyclePredictor {
             steps++
         }
         return candidate
+    }
+
+    /**
+     * 今天在周期中的位置。
+     *
+     * [CyclePosition.cycleDay] 是事实（只要有经期记录就有值），
+     * [CyclePosition.phase] 是推算（依赖 [CyclePrediction.ovulationDay]，即 `confidence ≥ MEDIUM`）。
+     * 两者的门槛刻意不同，详见 ADR-0004。
+     */
+    private fun positionOf(
+        episodes: List<PeriodEpisode>,
+        prediction: CyclePrediction,
+        today: LocalDate,
+    ): CyclePosition {
+        val lastEpisode = episodes.lastOrNull() ?: return CyclePosition.unknown
+        return CyclePosition(
+            cycleDay = (today.toEpochDay() - lastEpisode.start.toEpochDay() + 1).toInt(),
+            phase = phaseOf(lastEpisode, prediction.ovulationDay, today),
+        )
+    }
+
+    /** 阶段判定：先看实测（今天是否还在经期段内），再看推算（相对预计排卵日的位置）。 */
+    private fun phaseOf(
+        lastEpisode: PeriodEpisode,
+        ovulationDay: LocalDate?,
+        today: LocalDate,
+    ): CyclePhase = when {
+        !today.isAfter(lastEpisode.endInclusive) -> CyclePhase.MENSTRUATION
+        ovulationDay == null -> CyclePhase.UNKNOWN
+        today.isBefore(ovulationDay.minusDays(OVULATION_PHASE_RADIUS_DAYS)) -> CyclePhase.FOLLICULAR
+        today.isAfter(ovulationDay.plusDays(OVULATION_PHASE_RADIUS_DAYS)) -> CyclePhase.LUTEAL
+        else -> CyclePhase.OVULATION
     }
 
     private fun variability(window: List<Int>): Int? =

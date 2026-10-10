@@ -44,6 +44,8 @@ data class CycleStats(
     val recentCycleLengths: List<Int>,
     /** 经期段的平均长度（最近 6 段，未夹取、未填默认值）。 */
     val averagePeriodLength: Int?,
+    /** 经期段总数。用于向用户说明"还差几次记录就能看到预计"（事实计数，不含推算）。 */
+    val episodeCount: Int,
     /** 因超出 `[15, 60]` 天而未参与预计的周期个数（全部历史累计）。 */
     val excludedCycleCount: Int,
     /** 参与预计的有效样本数。 */
@@ -79,8 +81,9 @@ data class CyclePrediction(
     }
 }
 
-/** 统计 + 预测的组合，UI 一次拿到全部派生结果。 */
+/** 统计 + 预测 + 今日位置的组合，UI 一次拿到全部派生结果。 */
 data class CycleInsight(
     val stats: CycleStats,
     val prediction: CyclePrediction,
+    val position: CyclePosition,
 )

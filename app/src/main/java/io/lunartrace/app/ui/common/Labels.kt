@@ -1,6 +1,7 @@
 package io.lunartrace.app.ui.common
 
 import io.lunartrace.app.domain.model.Confidence
+import io.lunartrace.app.domain.model.CyclePhase
 import io.lunartrace.app.domain.model.FlowIntensity
 import io.lunartrace.app.domain.model.Mood
 import io.lunartrace.app.domain.model.Symptom
@@ -48,6 +49,23 @@ fun Confidence.label(): String = when (this) {
     Confidence.LOW -> "数据不足，仅供参考"
     Confidence.MEDIUM -> "数据较充足"
     Confidence.HIGH -> "数据充足"
+}
+
+/**
+ * 阶段文案。`UNKNOWN` **没有文案**：数据不足时必须由 UI 显式说明，不允许留白或编一个阶段名。
+ */
+fun CyclePhase.labelOrNull(): String? = when (this) {
+    CyclePhase.MENSTRUATION -> "经期"
+    CyclePhase.FOLLICULAR -> "卵泡期"
+    CyclePhase.OVULATION -> "排卵期"
+    CyclePhase.LUTEAL -> "黄体期"
+    CyclePhase.UNKNOWN -> null
+}
+
+/** 数据不足时的进度说明：把"还差几次"讲清楚，避免用户以为功能坏了（见 ADR-0004 代价 1）。 */
+fun notEnoughRecordsText(episodeCount: Int, requiredEpisodes: Int): String {
+    val remaining = (requiredEpisodes - episodeCount).coerceAtLeast(1)
+    return "再记录 $remaining 次经期开始，就会显示下次经期预计与周期阶段。"
 }
 
 fun LocalDate.monthDayText(): String = "${monthValue}月${dayOfMonth}日"

@@ -1,6 +1,6 @@
 # ADR 0003：用统计均值法做周期预测，并显式输出置信度
 
-Status: accepted
+Status: accepted（呈现口径已由 ADR-0004 扩展：阶段划分、排卵日单日呈现、事实与推算的不同门槛）
 Date: 2026-10-10
 
 ## Context
