@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.lunartrace.app.data.security.PinHash
 import io.lunartrace.app.data.security.PinHasher
+import io.lunartrace.app.domain.model.CycleDefaults
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -26,6 +27,36 @@ val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     val appLockEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_APP_LOCK_ENABLED] ?: false }
+
+    /**
+     * 用户填写的缺省周期长度/经期长度（ADR-0005）。未填写时字段为 `null`——**不预置默认值**，
+     * 预置会制造"这个数字是应用测出来的"的错觉。
+     */
+    val cycleDefaults: Flow<CycleDefaults> = dataStore.data.map { preferences ->
+        CycleDefaults(
+            cycleLengthDays = preferences[KEY_DEFAULT_CYCLE_LENGTH],
+            periodLengthDays = preferences[KEY_DEFAULT_PERIOD_LENGTH],
+        )
+    }
+
+    /** 写入缺省值；传 `null` 表示清除该项（DataStore 没有"存 null"，只能删键）。 */
+    suspend fun setCycleDefaults(defaults: CycleDefaults) {
+        dataStore.edit { preferences ->
+            val cycleLengthDays = defaults.cycleLengthDays
+            if (cycleLengthDays == null) {
+                preferences.remove(KEY_DEFAULT_CYCLE_LENGTH)
+            } else {
+                preferences[KEY_DEFAULT_CYCLE_LENGTH] = cycleLengthDays
+            }
+
+            val periodLengthDays = defaults.periodLengthDays
+            if (periodLengthDays == null) {
+                preferences.remove(KEY_DEFAULT_PERIOD_LENGTH)
+            } else {
+                preferences[KEY_DEFAULT_PERIOD_LENGTH] = periodLengthDays
+            }
+        }
+    }
 
     suspend fun enableAppLock(pin: String) {
         val pinHash = PinHasher.create(pin)
@@ -72,6 +103,8 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     private companion object {
         val KEY_APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        val KEY_DEFAULT_CYCLE_LENGTH = intPreferencesKey("default_cycle_length")
+        val KEY_DEFAULT_PERIOD_LENGTH = intPreferencesKey("default_period_length")
         val KEY_PIN_SALT = stringPreferencesKey("pin_salt")
         val KEY_PIN_HASH = stringPreferencesKey("pin_hash")
         val KEY_PIN_ITERATIONS = intPreferencesKey("pin_iterations")

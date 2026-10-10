@@ -1,5 +1,6 @@
 package io.lunartrace.app.ui.calendar
 
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.CycleInsight
 import io.lunartrace.app.domain.model.FlowIntensity
 import io.lunartrace.app.domain.model.Mood
@@ -44,6 +45,8 @@ data class CalendarUiState(
     val entries: Map<LocalDate, SymptomEntry>,
     /** 预计经期日集合：网格需要它来判断"胶囊横条"该在哪一天倒角（见 `MonthGridLayout.ribbonEdges`）。 */
     val predictedDates: Set<LocalDate>,
+    /** 用户填写的缺省值：预测卡需要它来说明"依据来自你填写，而不是算出来的"（ADR-0005）。 */
+    val cycleDefaults: CycleDefaults,
     /** 非空表示记录弹层打开。 */
     val selected: DayDraft?,
 )

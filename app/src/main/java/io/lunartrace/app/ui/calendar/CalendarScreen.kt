@@ -41,8 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.lunartrace.app.R
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.CycleInsight
 import io.lunartrace.app.domain.model.CyclePosition
+import io.lunartrace.app.domain.model.PredictionBasis
 import io.lunartrace.app.domain.prediction.CyclePredictor
 import io.lunartrace.app.ui.common.excludedSamplesText
 import io.lunartrace.app.ui.common.label
@@ -50,6 +52,7 @@ import io.lunartrace.app.ui.common.labelOrNull
 import io.lunartrace.app.ui.common.monthDayText
 import io.lunartrace.app.ui.common.notEnoughRecordsText
 import io.lunartrace.app.ui.common.titleText
+import io.lunartrace.app.ui.common.userDefaultBasisText
 import io.lunartrace.app.ui.lunartraceViewModelFactory
 import io.lunartrace.app.ui.theme.LunartraceHeaderGradient
 import java.time.YearMonth
@@ -87,7 +90,7 @@ fun CalendarScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            PredictionCard(insight = state.insight)
+            PredictionCard(insight = state.insight, cycleDefaults = state.cycleDefaults)
             Spacer(Modifier.height(8.dp))
             MonthSwitcher(
                 month = state.month,
@@ -122,7 +125,7 @@ fun CalendarScreen(
 }
 
 @Composable
-private fun PredictionCard(insight: CycleInsight) {
+private fun PredictionCard(insight: CycleInsight, cycleDefaults: CycleDefaults) {
     val prediction = insight.prediction
     val nextStart = prediction.nextPeriodStart
 
@@ -150,6 +153,17 @@ private fun PredictionCard(insight: CycleInsight) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (prediction.basis == PredictionBasis.USER_DEFAULT) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = userDefaultBasisText(
+                            cycleLengthDays = cycleDefaults.cycleLengthDays,
+                            requiredEpisodes = CyclePredictor.MIN_EPISODES_FOR_PHASE,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 // 排卵信息是**单日**：区间只保留"易孕窗口"一个，避免两个天数不同的区间互相打架（ADR-0004）
                 prediction.ovulationDay?.let { ovulationDay ->
                     Spacer(Modifier.height(4.dp))

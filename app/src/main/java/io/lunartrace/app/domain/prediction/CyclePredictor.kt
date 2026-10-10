@@ -1,11 +1,13 @@
 package io.lunartrace.app.domain.prediction
 
 import io.lunartrace.app.domain.model.Confidence
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.CycleInsight
 import io.lunartrace.app.domain.model.CyclePhase
 import io.lunartrace.app.domain.model.CyclePosition
 import io.lunartrace.app.domain.model.CyclePrediction
 import io.lunartrace.app.domain.model.CycleStats
+import io.lunartrace.app.domain.model.PredictionBasis
 import io.lunartrace.app.domain.model.PeriodEpisode
 import java.time.LocalDate
 
@@ -56,8 +58,13 @@ object CyclePredictor {
      *
      * @param periodDays 全部经期日，允许包含未来日期（会被忽略）。
      * @param today 本次计算依据的"今天"，由 `core/time/Today` 提供。
+     * @param defaults 用户在设置里填写的缺省值；只在没有有效样本时兜底（ADR-0005）。
      */
-    fun analyze(periodDays: Collection<LocalDate>, today: LocalDate): CycleInsight {
+    fun analyze(
+        periodDays: Collection<LocalDate>,
+        today: LocalDate,
+        defaults: CycleDefaults = CycleDefaults.none,
+    ): CycleInsight {
         val episodes = CycleMath.episodes(periodDays.filterNot { it.isAfter(today) })
         val allCycleLengths = CycleMath.cycleLengths(episodes)
         val validCycleLengths = allCycleLengths.filter { it in MIN_VALID_CYCLE_LENGTH..MAX_VALID_CYCLE_LENGTH }
@@ -74,7 +81,7 @@ object CyclePredictor {
             variabilityDays = variability(window),
         )
         val confidence = confidenceOf(stats)
-        val prediction = predict(episodes, stats, confidence, today)
+        val prediction = predict(episodes, stats, confidence, defaults, today)
         return CycleInsight(
             stats = stats,
             prediction = prediction,
@@ -92,33 +99,65 @@ object CyclePredictor {
         else -> Confidence.MEDIUM
     }
 
+    /**
+     * 生成预测。依据的优先级（ADR-0005）：
+     * 实测有效样本 → 用户填写的缺省周期长度（需通过范围校验）→ 不预测。
+     *
+     * 注意：`averageCycleLength` 为 `null` 时就意味着有效样本为 0（即 [Confidence.NONE]），
+     * 所以不需要额外的置信度判断；兜底路径把置信度显式降为 [Confidence.LOW]。
+     */
     private fun predict(
         episodes: List<PeriodEpisode>,
         stats: CycleStats,
         confidence: Confidence,
+        defaults: CycleDefaults,
         today: LocalDate,
     ): CyclePrediction {
-        if (confidence == Confidence.NONE) return CyclePrediction.none
+        val lastEpisode = episodes.lastOrNull() ?: return CyclePrediction.none
+        val measuredCycleLength = stats.averageCycleLength
+        val basisDays = measuredCycleLength ?: validatedDefaultCycleLength(defaults) ?: return CyclePrediction.none
 
-        val basisDays = stats.averageCycleLength ?: return CyclePrediction.none
-        val lastStart = episodes.lastOrNull()?.start ?: return CyclePrediction.none
-        val nextStart = nextPeriodStart(lastStart, basisDays.toLong(), today)
-            ?: return CyclePrediction.none.copy(confidence = confidence)
+        val basis = if (measuredCycleLength != null) PredictionBasis.RECORDS else PredictionBasis.USER_DEFAULT
+        val effectiveConfidence = if (measuredCycleLength != null) confidence else Confidence.LOW
 
-        val periodLength = (stats.averagePeriodLength ?: DEFAULT_PERIOD_LENGTH_DAYS)
+        val nextStart = nextPeriodStart(lastEpisode.start, basisDays.toLong(), today)
+            ?: return CyclePrediction.none.copy(confidence = effectiveConfidence, basis = basis)
+
+        // 经期长度同样遵循"实测优先"，但在兜底状态下**不用实测**：
+        // 只有 1 段经期时"实测长度"往往只是"用户还没记完"，用它会把预测区间压到 3 天。
+        val periodLengthBasis = if (basis == PredictionBasis.RECORDS) {
+            stats.averagePeriodLength
+        } else {
+            validatedDefaultPeriodLength(defaults)
+        }
+        val periodLength = (periodLengthBasis ?: DEFAULT_PERIOD_LENGTH_DAYS)
             .coerceIn(MIN_PERIOD_LENGTH_DAYS, MAX_PERIOD_LENGTH_DAYS)
+
         // 排卵日与易孕窗口同生共死：置信度不足时两者都为 null，
         // 否则"只藏窗口、漏出排卵日"等于换个说法继续误导（见 cycle-prediction.md §2）。
-        val ovulationDay = if (confidence >= Confidence.MEDIUM) nextStart.minusDays(LUTEAL_PHASE_DAYS.toLong()) else null
+        val ovulationDay = if (effectiveConfidence >= Confidence.MEDIUM) {
+            nextStart.minusDays(LUTEAL_PHASE_DAYS.toLong())
+        } else {
+            null
+        }
 
         return CyclePrediction(
             nextPeriodStart = nextStart,
             predictedPeriodDays = (0 until periodLength).map { nextStart.plusDays(it.toLong()) },
             ovulationDay = ovulationDay,
             fertileWindow = ovulationDay?.let(::fertileWindow),
-            confidence = confidence,
+            confidence = effectiveConfidence,
+            basis = basis,
         )
     }
+
+    /** 用户填写的周期长度：必须落在与有效样本**完全相同**的区间内，越界视为未填写（不夹取）。 */
+    private fun validatedDefaultCycleLength(defaults: CycleDefaults): Int? =
+        defaults.cycleLengthDays?.takeIf { it in MIN_VALID_CYCLE_LENGTH..MAX_VALID_CYCLE_LENGTH }
+
+    /** 用户填写的经期长度：与预测区间的夹取范围一致，越界视为未填写。 */
+    private fun validatedDefaultPeriodLength(defaults: CycleDefaults): Int? =
+        defaults.periodLengthDays?.takeIf { it in MIN_PERIOD_LENGTH_DAYS..MAX_PERIOD_LENGTH_DAYS }
 
     private fun fertileWindow(ovulationDay: LocalDate): ClosedRange<LocalDate> {
         val windowStart = ovulationDay.minusDays(FERTILE_WINDOW_DAYS_BEFORE_OVULATION.toLong())

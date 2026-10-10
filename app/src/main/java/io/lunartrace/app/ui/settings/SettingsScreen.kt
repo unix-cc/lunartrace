@@ -1,5 +1,6 @@
 package io.lunartrace.app.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -42,7 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.lunartrace.app.R
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.PinPolicy
+import io.lunartrace.app.domain.prediction.CyclePredictor
+import io.lunartrace.app.ui.common.optionalDaysText
 import io.lunartrace.app.ui.lunartraceViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +82,12 @@ fun SettingsScreen(
                 onLockToggled = { checked ->
                     if (checked) viewModel.onSetPinRequested() else viewModel.onDisablePinRequested()
                 },
+            )
+            Spacer(Modifier.height(16.dp))
+            CycleDefaultsCard(
+                cycleDefaults = state.cycleDefaults,
+                onEditCycleLength = viewModel::onCycleLengthEditRequested,
+                onEditPeriodLength = viewModel::onPeriodLengthEditRequested,
             )
             Spacer(Modifier.height(16.dp))
             DataCard(
@@ -124,6 +135,124 @@ private fun PrivacyCard(appLockEnabled: Boolean, onLockToggled: (Boolean) -> Uni
             )
         }
     }
+}
+
+@Composable
+private fun CycleDefaultsCard(
+    cycleDefaults: CycleDefaults,
+    onEditCycleLength: () -> Unit,
+    onEditPeriodLength: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "缺省周期长度", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "还没记录满 ${CyclePredictor.MIN_EPISODES_FOR_PHASE} 次经期开始时，" +
+                    "可以用这里的值先给出预计；攒够记录后会自动改用你的实际数据。留空则什么都不预测。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            SettingRow(
+                label = "周期长度",
+                value = optionalDaysText(cycleDefaults.cycleLengthDays),
+                onClick = onEditCycleLength,
+            )
+            HorizontalDivider()
+            SettingRow(
+                label = "经期长度",
+                value = optionalDaysText(cycleDefaults.periodLengthDays),
+                onClick = onEditPeriodLength,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * 天数输入。`validRange` 与领域里的区间一致（周期 15–60、经期 3–10），越界直接禁用保存——
+ * **不做夹取**：夹取等于假装用户填的是别的数字。
+ */
+@Composable
+private fun DaysInputDialog(
+    title: String,
+    hint: String,
+    initialValue: Int?,
+    validRange: IntRange,
+    onDismiss: () -> Unit,
+    onConfirm: (Int?) -> Unit,
+) {
+    var text by remember { mutableStateOf(initialValue?.toString().orEmpty()) }
+    val parsed = text.trim().toIntOrNull()
+    val isBlank = text.isBlank()
+    val outOfRange = !isBlank && (parsed == null || parsed !in validRange)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.filter(Char::isDigit).take(MAX_DAYS_INPUT_LENGTH) },
+                    label = { Text(hint) },
+                    singleLine = true,
+                    isError = outOfRange,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (outOfRange) {
+                        "只接受 ${validRange.first}–${validRange.last} 之间的天数"
+                    } else {
+                        "留空表示未填写（不使用缺省值）"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (outOfRange) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(if (isBlank) null else parsed) },
+                enabled = !outOfRange,
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
 }
 
 @Composable
@@ -183,9 +312,28 @@ private fun SettingsDialogs(state: SettingsUiState, viewModel: SettingsViewModel
             onDismiss = viewModel::onDialogDismissed,
             onConfirm = viewModel::wipeAllData,
         )
+        SettingsDialog.EDIT_CYCLE_LENGTH -> DaysInputDialog(
+            title = "周期长度",
+            hint = "例如 28",
+            initialValue = state.cycleDefaults.cycleLengthDays,
+            validRange = CyclePredictor.MIN_VALID_CYCLE_LENGTH..CyclePredictor.MAX_VALID_CYCLE_LENGTH,
+            onDismiss = viewModel::onDialogDismissed,
+            onConfirm = viewModel::setDefaultCycleLength,
+        )
+        SettingsDialog.EDIT_PERIOD_LENGTH -> DaysInputDialog(
+            title = "经期长度",
+            hint = "例如 5",
+            initialValue = state.cycleDefaults.periodLengthDays,
+            validRange = CyclePredictor.MIN_PERIOD_LENGTH_DAYS..CyclePredictor.MAX_PERIOD_LENGTH_DAYS,
+            onDismiss = viewModel::onDialogDismissed,
+            onConfirm = viewModel::setDefaultPeriodLength,
+        )
         SettingsDialog.NONE -> Unit
     }
 }
+
+/** 天数输入的字符上限（三位数足够覆盖 15–60 与 3–10）。 */
+private const val MAX_DAYS_INPUT_LENGTH = 3
 
 @Composable
 private fun SetPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {

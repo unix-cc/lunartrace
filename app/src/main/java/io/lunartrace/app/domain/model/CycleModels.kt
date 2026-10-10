@@ -55,10 +55,39 @@ data class CycleStats(
 )
 
 /**
+ * 预测的依据来源。UI 必须显式处理三种情况：**不能假定"有日期就一定是算出来的"**。
+ */
+enum class PredictionBasis {
+    /** 没有依据，不预测。 */
+    NONE,
+
+    /** 用户自己在设置里填写的缺省周期长度（不是从记录算出来的，见 ADR-0005）。 */
+    USER_DEFAULT,
+
+    /** 从实际记录的有效样本算出来的。 */
+    RECORDS,
+}
+
+/**
+ * 用户在设置里填写的缺省值；`null` 表示**未填写**。
+ *
+ * 刻意不预置 28/5：预置会制造"这个数字是应用测出来的"的错觉（见 ADR-0005）。
+ */
+data class CycleDefaults(
+    val cycleLengthDays: Int?,
+    val periodLengthDays: Int?,
+) {
+    companion object {
+        val none = CycleDefaults(cycleLengthDays = null, periodLengthDays = null)
+    }
+}
+
+/**
  * 下一次经期的预测结果。
  *
  * 不变量（见 `specs/capabilities/cycle-prediction.md`）：
  * - [confidence] 为 [Confidence.NONE] 时，本对象所有日期字段必须为 `null`、[predictedPeriodDays] 必须为空。
+ * - [basis] 为 [PredictionBasis.NONE] 时同上。
  * - [ovulationDay] 与 [fertileWindow] 同生共死：两者都在 [confidence] ≥ [Confidence.MEDIUM] 时才非空。
  * - [nextPeriodStart] 若存在，永远晚于"今天"。
  */
@@ -68,6 +97,7 @@ data class CyclePrediction(
     val ovulationDay: LocalDate?,
     val fertileWindow: ClosedRange<LocalDate>?,
     val confidence: Confidence,
+    val basis: PredictionBasis = PredictionBasis.NONE,
 ) {
     companion object {
         /** 无预测。 */
@@ -77,6 +107,7 @@ data class CyclePrediction(
             ovulationDay = null,
             fertileWindow = null,
             confidence = Confidence.NONE,
+            basis = PredictionBasis.NONE,
         )
     }
 }

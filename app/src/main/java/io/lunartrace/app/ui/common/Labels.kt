@@ -62,6 +62,18 @@ fun CyclePhase.labelOrNull(): String? = when (this) {
     CyclePhase.UNKNOWN -> null
 }
 
+/**
+ * 兜底预测的来源说明（ADR-0005 Decision 6）：
+ * 必须让用户看懂"这是你填的，不是算出来的"，否则等于把用户自述伪装成测量结果。
+ */
+fun userDefaultBasisText(cycleLengthDays: Int?, requiredEpisodes: Int): String {
+    val lengthText = cycleLengthDays?.let { " $it 天" }.orEmpty()
+    return "基于你填写的缺省周期长度$lengthText；记录满 $requiredEpisodes 次经期开始后会自动改用你的实际数据。"
+}
+
+/** 设置项里显示天数；未填写时明确显示"未填写"，不显示一个看起来像默认值的数字。 */
+fun optionalDaysText(days: Int?): String = days?.let { "$it 天" } ?: "未填写"
+
 /** 数据不足时的进度说明：把"还差几次"讲清楚，避免用户以为功能坏了（见 ADR-0004 代价 1）。 */
 fun notEnoughRecordsText(episodeCount: Int, requiredEpisodes: Int): String {
     val remaining = (requiredEpisodes - episodeCount).coerceAtLeast(1)

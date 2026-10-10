@@ -16,8 +16,12 @@ import io.lunartrace.app.ui.stats.StatsViewModel
  * ViewModel 只拿到自己需要的东西，不认识 `Context`，也拿不到 DAO。
  */
 val lunartraceViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
-    initializer { CalendarViewModel(app().container.cycleRepository, app().container.today) }
-    initializer { StatsViewModel(app().container.cycleRepository, app().container.today) }
+    initializer {
+        CalendarViewModel(app().container.cycleRepository, app().container.today, app().container.settingsStore)
+    }
+    initializer {
+        StatsViewModel(app().container.cycleRepository, app().container.today, app().container.settingsStore)
+    }
     initializer { SettingsViewModel(app().container.settingsStore, app().container.cycleRepository) }
     initializer { LockViewModel(app().container.settingsStore) }
 }

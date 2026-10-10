@@ -3,6 +3,8 @@ package io.lunartrace.app.ui.calendar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.lunartrace.app.core.time.Today
+import io.lunartrace.app.data.prefs.SettingsStore
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.FlowIntensity
 import io.lunartrace.app.domain.model.Mood
 import io.lunartrace.app.domain.model.PeriodDay
@@ -26,6 +28,7 @@ import java.time.YearMonth
 class CalendarViewModel(
     private val repository: CycleRepository,
     private val today: Today,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
     private val month = MutableStateFlow(YearMonth.from(today.date()))
@@ -34,14 +37,21 @@ class CalendarViewModel(
     private val records = combine(
         repository.observePeriodDays(),
         repository.observeSymptomEntries(),
-    ) { periods, entries -> periods to entries }
+        settingsStore.cycleDefaults,
+    ) { periods, entries, defaults -> Triple(periods, entries, defaults) }
 
-    val uiState: StateFlow<CalendarUiState> = combine(records, month, selection) { (periods, entries), currentMonth, draft ->
-        buildState(currentMonth, periods, entries, draft)
+    val uiState: StateFlow<CalendarUiState> = combine(records, month, selection) { (periods, entries, defaults), currentMonth, draft ->
+        buildState(currentMonth, periods, entries, defaults, draft)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = buildState(YearMonth.from(today.date()), emptyList(), emptyList(), null),
+        initialValue = buildState(
+            month = YearMonth.from(today.date()),
+            periods = emptyList(),
+            entries = emptyList(),
+            defaults = CycleDefaults.none,
+            draft = null,
+        ),
     )
 
     /** 弹层的动作集合，供 Composable 直接使用。 */
@@ -132,10 +142,11 @@ class CalendarViewModel(
         month: YearMonth,
         periods: List<PeriodDay>,
         entries: List<SymptomEntry>,
+        defaults: CycleDefaults,
         draft: DayDraft?,
     ): CalendarUiState {
         val todayDate = today.date()
-        val insight = CyclePredictor.analyze(periods.map { it.date }, todayDate)
+        val insight = CyclePredictor.analyze(periods.map { it.date }, todayDate, defaults)
         val periodDates = periods.associate { it.date to it.flow }
         val predictedDates = insight.prediction.predictedPeriodDays.toSet()
         val ovulationDates = setOfNotNull(insight.prediction.ovulationDay)
@@ -162,6 +173,7 @@ class CalendarViewModel(
             periods = periodDates,
             entries = entries.associateBy { it.date },
             predictedDates = predictedDates,
+            cycleDefaults = defaults,
             selected = draft,
         )
     }

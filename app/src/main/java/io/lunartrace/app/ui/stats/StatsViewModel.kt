@@ -3,6 +3,8 @@ package io.lunartrace.app.ui.stats
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.lunartrace.app.core.time.Today
+import io.lunartrace.app.data.prefs.SettingsStore
+import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.CycleInsight
 import io.lunartrace.app.domain.model.Symptom
 import io.lunartrace.app.domain.model.SymptomEntry
@@ -31,23 +33,30 @@ data class StatsUiState(
 class StatsViewModel(
     private val repository: CycleRepository,
     private val today: Today,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
     val uiState: StateFlow<StatsUiState> = combine(
         repository.observePeriodDays(),
         repository.observeSymptomEntries(),
-    ) { periods, entries ->
-        buildState(entries, periods.map { it.date })
+        settingsStore.cycleDefaults,
+    ) { periods, entries, defaults ->
+        buildState(entries, periods.map { it.date }, defaults)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = buildState(emptyList(), emptyList()),
+        initialValue = buildState(emptyList(), emptyList(), CycleDefaults.none),
     )
 
-    private fun buildState(entries: List<SymptomEntry>, periodDates: List<LocalDate>): StatsUiState {
+    /** 注意：缺省值只影响 `insight`（预测与阶段），**不影响任何统计量**——统计只由实测样本产生。 */
+    private fun buildState(
+        entries: List<SymptomEntry>,
+        periodDates: List<LocalDate>,
+        defaults: CycleDefaults,
+    ): StatsUiState {
         val filledEntries = entries.filterNot { it.isEmpty }
         return StatsUiState(
-            insight = CyclePredictor.analyze(periodDates, today.date()),
+            insight = CyclePredictor.analyze(periodDates, today.date(), defaults),
             symptomFrequencies = symptomFrequencies(filledEntries),
             periodDayCount = periodDates.size,
             symptomEntryCount = filledEntries.size,
