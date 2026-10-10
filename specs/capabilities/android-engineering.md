@@ -58,6 +58,20 @@
 - ✅ `./gradlew detekt` 无 error 才算完成（L1）。
 - ⚠️ 未落地（L3，别假装有效）：无 `./gradlew lint`（AGP lint）硬门禁；无 instrumented 测试；无 UI 截图测试。
 
+## 7. CI 与构建环境（2026-10-10 的血泪教训，务必先看）
+
+背景：`main` 上前 4 次 CI 运行全部失败，**没有一次是代码问题**，而"代码到底过没过"在前 4 次里完全不可知。
+
+- ✅ 不需要 JDK/SDK 的检查（隐私守卫、文档一致性）放在 workflow **最前面**。
+  - ❌ 放在环境准备之后 → 环境准备失败时这些步骤被 skip，代码检查的信号被一起吞掉。
+- ✅ Android SDK 组件用 `sdkmanager` 显式安装（runner 镜像自带；缺失时从 dl.google.com 下载 cmdline-tools）。
+  - ❌ 继续用 `android-actions/setup-android@v3` → 该 action 仍在 Node 20，被强制跑在 Node 24，且已弃用。
+- ✅ 接受许可这样喂输入：`printf 'y\n%.0s' $(seq 1 50) > f && sdkmanager --licenses < f`
+  - ❌ `yes | sdkmanager --licenses` → 在 `set -o pipefail` 下 `yes` 会因 SIGPIPE 被终止，整条管道失败，把"正常结束"当成错误（这就是第 4 次运行的失败原因）。
+- ✅ `gradlew` 与 `scripts/` 下的 shell 脚本在 git 里必须是 `100755`（`git ls-files -s` 可验）；并在 workflow 里加 `chmod +x ./gradlew` 兜底，因为 Windows 提交时默认不带 exec 位。
+- ✅ 读不到 CI 日志时（`/actions/runs/{id}/logs` 需鉴权），把步骤**拆到"失败步骤名即可定位"的粒度**。
+  - ❌ 把 SDK 准备与组件安装塞在一步里 → 失败时只知道"SDK 有问题"，只能靠猜。
+
 ## 提交前快速自检
 
 - [ ] 新增的"今天"都来自 `Today`，没有直接 `LocalDate.now()`

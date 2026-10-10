@@ -94,12 +94,23 @@ $ git hook run commit-msg -- msg-good.txt     → PASS，exit=0
 
 ## 附录（同日追加）：L2 的首次落地状态
 
-推送到 `git@github.com:unix-cc/lunartrace.git`（私有仓库）后：
+**结论：L2 已真正生效。** 2026-10-10，运行 `38048419779`（sha `07e67b1`），17 个步骤全绿，耗时 191s。
+其中在 CI 上真实通过的是：隐私红线、文档一致性、`detekt`、`testDebugUnitTest`、覆盖率硬门禁、`assembleDebug`。
 
-- `main` 上已有 2 个提交；CI 已随 push 被触发 **2 次**。
-- **结果未经验证**：开发机没有 `gh` CLI、没有任何 GitHub token，匿名 API 返回 404（私有仓库）。
-  因此 L2 目前的状态是"**已存在、已触发、未确认**"，不得当作生效的门禁。查看方式见 `DEVELOP.md` §2。
-- 顺带查出一个真实缺陷（正是"CI 只是纸面"的代价）：首次提交里 `gradlew` 的文件模式是 `100644`
-  （Windows 不记录 exec 位，`git ls-files -s` 可证），CI 执行 `./gradlew` 必然 `Permission denied`。
-  已修复：`git update-index --chmod=+x` 修正 `gradlew` 与 `scripts/` 下脚本，并在 workflow 里加 `chmod +x ./gradlew` 作为复发性问题的保险。
-- 结论照旧诚实：**在页面上看到一次绿色运行之前，"L2 门禁"这句话不成立。**
+达成过程：**连续 4 次运行失败，全部是环境问题，没有一次是代码问题。**
+
+| 运行 | sha | 失败步骤 | 处置 |
+|---|---|---|---|
+| 1-3 | `bcc80c1`/`1168920`/`0569395` | 安装 Android SDK（后续步骤全 skipped） | 先修 `gradlew` 的 `100644` 模式；再把已弃用的 `android-actions/setup-android@v3`（仍在 Node 20、被强制跑在 Node 24）换成显式 `sdkmanager` |
+| 4 | `dd6079b` | 仍死在 SDK 步骤 | 说明不是 action 的问题：根因是 `set -o pipefail` 下的 `yes \| sdkmanager --licenses` —— sdkmanager 正常结束后 `yes` 收到 SIGPIPE 被终止，整条管道被判失败，等于把"正常结束"当成错误 |
+| 5 | `07e67b1` | — | 许可接受改为文件喂输入；SDK 步骤拆成两步以便凭"失败步骤名"定位 → **全绿** |
+
+三条教训（已就地写进 `.github/workflows/android.yml` 注释与 `specs/capabilities/android-engineering.md` §7）：
+
+1. **不需要 JDK/SDK 的检查必须排在最前面**，否则环境准备失败会把所有代码检查信号一起吞掉
+   （前 4 次运行里，"代码到底过没过"这一点完全不可知——这比失败本身更危险）。
+2. **读不到日志时，把步骤拆到"失败步骤名即可定位"的粒度**，比反复猜测便宜。
+   本机取不到 CI 日志（`/actions/runs/{id}/logs` 需鉴权，403），能看到的只有失败步骤名。
+3. 这四次失败**全是环境问题，L1 从第一次提交起给的就是正确结论**。
+   这是"L1 有效、L2 只是存在"的实证：云端门禁在真正跑通一次之前，价值为零。
+

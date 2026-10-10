@@ -50,7 +50,9 @@ python scripts/check-docs.py             # 文档一致性（路由表目标存�
 ### 远端与 L2 的查看方式
 
 - 远端：`git@github.com:unix-cc/lunartrace.git`，默认分支 `main`（CI 的 `push` 触发条件写的是 `main`）。
-- 云端检查结果：<https://github.com/unix-cc/lunartrace/actions>。仓库是私有的，本地无法用匿名接口查询，只能看这个页面。
+- 云端检查结果：<https://github.com/unix-cc/lunartrace/actions>。
+  仓库是 public，所以**运行状态可以用匿名 API 查**（`GET /repos/unix-cc/lunartrace/actions/runs` 与 `.../runs/{id}/jobs` 能看到每个步骤的结论）；
+  但**日志下载仍需鉴权**（`.../runs/{id}/logs` 返回 403）。因此 workflow 里的步骤粒度要按"失败步骤名即可定位"来设计，见 `specs/capabilities/android-engineering.md` §7。
 - **把它设为 required status check 之前，先确认页面上至少出现过一次绿色运行。** 没有绿色运行就不算生效的门禁。
 
 ## 3. dev → test → build → release
