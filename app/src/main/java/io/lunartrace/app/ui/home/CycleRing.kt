@@ -1,4 +1,4 @@
-package io.lunartrace.app.ui.calendar
+package io.lunartrace.app.ui.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box

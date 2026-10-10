@@ -20,6 +20,9 @@ keystore.properties
 *.jks
 *.keystore
 
+# --- 本地分发产物（APK/AAB 是构建产物，不进仓库） ---
+dist/
+
 # --- OS ---
 .DS_Store
 Thumbs.db

@@ -67,14 +67,22 @@ python scripts/check-docs.py             # 文档一致性（路由表目标存�
 ### 签名与「安装包缺乏开发者证书」
 
 - 手机提示**"安装包缺乏开发者证书"** = 你装的是**未签名**的包。未签名的 APK 在 Android 上直接被拒装。
-- 只是想在手机上试：用 **debug 包**（`app/build/outputs/apk/debug/app-debug.apk`），它由 debug keystore 签名，可直接安装。
-- 想发正式包，先做签名材料（模板见仓库根 `keystore.properties.example`）：
-  1. `keytool -genkeypair -v -keystore lunartrace.jks -keyalg RSA -keysize 2048 -validity 10000 -alias lunartrace`
-  2. 复制 `keystore.properties.example` 为 `keystore.properties` 并填四个键
-  3. `keystore.properties` **不入库**（在 `.gitignore` 里），`*.jks` 同样不入库——请离线备份密钥库
+- 本仓库**已有可用的签名材料**（都不入库）：
+  - `keystore/lunartrace-release.jks`（RSA 2048，有效期 10000 天，别名 `lunartrace`）
+  - `keystore.properties`（四个键）
+  - 产出：`./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/app-release.apk`
+- **产出后必须验证签名，不能只看 `BUILD SUCCESSFUL`**：
+  ```
+  "$ANDROID_HOME/build-tools/34.0.0/apksigner.bat" verify --print-certs --verbose \
+      app/build/outputs/apk/release/app-release.apk
+  ```
+  应当打印 `Signer #1 certificate DN: CN=Lunartrace,...` 与 SHA-256 指纹。
+  只出现 `Verification FAILED`、或压根没有 Signer 行，就不算签名成功。
+- ⚠️ **keystore 与密码必须离线备份**：丢了就再也无法给已安装用户推送升级，只能换包名重发。
+- 调试包与正式包签名不同，**不能互相覆盖安装**；装正式包前需先卸载调试包。
+- 换机器时想从零重建签名材料：模板见仓库根 `keystore.properties.example`，按其中三步生成即可。
 - 守卫：四个键缺任何一个，`assembleRelease` / `bundleRelease` 会**直接失败**并给出提示。
   这是刻意的——宁可不产出，也不产出一个"看起来像正式版、装到手机上却报缺乏开发者证书"的文件。
-- 调试包与正式包签名不同，**不能互相覆盖安装**；装正式包前需先卸载调试包。
 
 **发布前 checklist**：
 

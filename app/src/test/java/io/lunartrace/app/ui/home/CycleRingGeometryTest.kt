@@ -1,4 +1,4 @@
-package io.lunartrace.app.ui.calendar
+package io.lunartrace.app.ui.home
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

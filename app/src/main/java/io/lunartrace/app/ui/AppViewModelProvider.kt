@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.lunartrace.app.LunartraceApp
 import io.lunartrace.app.ui.calendar.CalendarViewModel
+import io.lunartrace.app.ui.home.HomeViewModel
 import io.lunartrace.app.ui.lock.LockViewModel
 import io.lunartrace.app.ui.settings.SettingsViewModel
 import io.lunartrace.app.ui.stats.StatsViewModel
@@ -18,6 +19,9 @@ import io.lunartrace.app.ui.stats.StatsViewModel
 val lunartraceViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
     initializer {
         CalendarViewModel(app().container.cycleRepository, app().container.today, app().container.settingsStore)
+    }
+    initializer {
+        HomeViewModel(app().container.cycleRepository, app().container.today, app().container.settingsStore)
     }
     initializer {
         StatsViewModel(app().container.cycleRepository, app().container.today, app().container.settingsStore)

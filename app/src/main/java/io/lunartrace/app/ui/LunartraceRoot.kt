@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.lunartrace.app.ui.calendar.CalendarScreen
+import io.lunartrace.app.ui.home.HomeScreen
 import io.lunartrace.app.ui.lock.LockScreen
 import io.lunartrace.app.ui.lock.LockViewModel
 import io.lunartrace.app.ui.settings.SettingsScreen
@@ -73,7 +76,9 @@ private fun MainScaffold() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute == Routes.CALENDAR || currentRoute == Routes.STATS
+    val showBottomBar = currentRoute == Routes.HOME ||
+        currentRoute == Routes.CALENDAR ||
+        currentRoute == Routes.STATS
 
     Scaffold(
         bottomBar = {
@@ -84,9 +89,14 @@ private fun MainScaffold() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.CALENDAR,
+            startDestination = Routes.HOME,
             modifier = Modifier.padding(padding),
         ) {
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onGoToCalendar = { navController.navigateToTab(Routes.CALENDAR) },
+                )
+            }
             composable(Routes.CALENDAR) {
                 CalendarScreen(onOpenSettings = { navController.navigate(Routes.SETTINGS) })
             }
@@ -103,25 +113,33 @@ private fun MainScaffold() {
 @Composable
 private fun BottomBar(navController: NavHostController, currentRoute: String?) {
     NavigationBar {
-        NavigationBarItem(
-            selected = currentRoute == Routes.CALENDAR,
-            onClick = {
-                if (currentRoute != Routes.CALENDAR) {
-                    navController.navigate(Routes.CALENDAR) { launchSingleTop = true }
-                }
-            },
-            icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-            label = { Text("日历") },
-        )
-        NavigationBarItem(
-            selected = currentRoute == Routes.STATS,
-            onClick = {
-                if (currentRoute != Routes.STATS) {
-                    navController.navigate(Routes.STATS) { launchSingleTop = true }
-                }
-            },
-            icon = { Icon(Icons.Filled.BarChart, contentDescription = null) },
-            label = { Text("统计") },
-        )
+        BottomTab.entries.forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { navController.navigateToTab(tab.route) },
+                icon = { Icon(tab.icon, contentDescription = null) },
+                label = { Text(tab.label) },
+            )
+        }
     }
+}
+
+/** 底部标签。声明顺序就是展示顺序，主页在最左（也是启动页）。 */
+private enum class BottomTab(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+) {
+    HOME(Routes.HOME, "主页", Icons.Filled.Home),
+    CALENDAR(Routes.CALENDAR, "日历", Icons.Filled.CalendarMonth),
+    STATS(Routes.STATS, "统计", Icons.Filled.BarChart),
+}
+
+/**
+ * 切到另一个标签页：`launchSingleTop` 防止重复点同一个标签把页面叠成一摞；
+ * 已经在目标页时直接返回，不产生多余的返回栈记录。
+ */
+private fun NavHostController.navigateToTab(route: String) {
+    if (currentDestination?.route == route) return
+    navigate(route) { launchSingleTop = true }
 }

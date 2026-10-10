@@ -47,8 +47,6 @@ data class CalendarUiState(
     val predictedDates: Set<LocalDate>,
     /** 用户填写的缺省值：预测卡需要它来说明"依据来自你填写，而不是算出来的"（ADR-0005）。 */
     val cycleDefaults: CycleDefaults,
-    /** 周期环要画的内容（本周期已走到的位置、经期日与排卵日的格号）。 */
-    val ring: CycleRingData,
     /** 记录面板正在编辑哪一天。面板是内联的，所以永远有值（默认"今天"）。 */
     val selectedDate: LocalDate,
     /**

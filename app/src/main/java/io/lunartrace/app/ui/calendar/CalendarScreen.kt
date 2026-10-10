@@ -96,7 +96,7 @@ fun CalendarScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            CalendarTopSection(
+            PredictionSection(
                 state = state,
                 onRecordLastPeriodStart = { showLastPeriodPicker = true },
                 onOpenSettings = onOpenSettings,
@@ -197,22 +197,18 @@ private fun LastPeriodStartDialog(
 }
 
 /**
- * 页面顶部：周期环 + 预测卡。
+ * 页面顶部：预测卡（含"该提示什么"的推导）。
  * 抽出来是因为 `CalendarScreen` 已经贴着 detekt 的 `LongMethod` 阈值——
  * 再往里加东西就会让人读不下去。
+ *
+ * 周期环不在这里：它已经在主页（见 `specs/changes/home-tab/spec.md`）。
  */
 @Composable
-private fun CalendarTopSection(
+private fun PredictionSection(
     state: CalendarUiState,
     onRecordLastPeriodStart: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    CycleRingSection(
-        data = state.ring,
-        today = state.today,
-        phase = state.insight.position.phase,
-    )
-    Spacer(Modifier.height(8.dp))
     PredictionCard(
         insight = state.insight,
         cycleDefaults = state.cycleDefaults,

@@ -1,4 +1,4 @@
-package io.lunartrace.app.ui.calendar
+package io.lunartrace.app.ui.home
 
 import io.lunartrace.app.domain.model.Confidence
 import io.lunartrace.app.domain.model.CyclePhase
