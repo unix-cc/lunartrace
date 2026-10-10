@@ -41,6 +41,8 @@ private val PILL_RADIUS = 4.dp
 private val DOT_SIZE = 4.dp
 private val SYMPTOM_DOT_PADDING = 4.dp
 private val OVULATION_DOT_PADDING = 2.dp
+private val NUMBER_RING_SIZE = 26.dp
+private val SELECTED_RING_WIDTH = 1.dp
 
 /**
  * 月视图网格：固定 6 行 × 7 列，周日起始。
@@ -54,6 +56,7 @@ private val OVULATION_DOT_PADDING = 2.dp
 fun MonthGrid(
     days: List<CalendarDay>,
     today: LocalDate,
+    selectedDate: LocalDate,
     periodDates: Set<LocalDate>,
     predictedDates: Set<LocalDate>,
     onDateClick: (LocalDate) -> Unit,
@@ -78,6 +81,7 @@ fun MonthGrid(
                     DayCell(
                         day = day,
                         isToday = day.date == today,
+                        isSelected = day.date == selectedDate,
                         periodEdges = if (day.marks.period) MonthGridLayout.ribbonEdges(periodDates, day.date) else null,
                         predictedEdges = if (day.marks.predicted) {
                             MonthGridLayout.ribbonEdges(predictedDates, day.date)
@@ -97,6 +101,7 @@ fun MonthGrid(
 private fun DayCell(
     day: CalendarDay,
     isToday: Boolean,
+    isSelected: Boolean,
     periodEdges: RibbonEdges?,
     predictedEdges: RibbonEdges?,
     onClick: () -> Unit,
@@ -118,16 +123,31 @@ private fun DayCell(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = day.date.dayOfMonth.toString(),
-                color = when {
-                    isToday -> colors.primary
-                    day.inCurrentMonth -> colors.onSurface
-                    else -> colors.onSurfaceVariant.copy(alpha = OUT_OF_MONTH_ALPHA)
-                },
-                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            // 选中的那一天在数字外加一圈中性描边：与"今天"（加粗 + 主色）可以同时成立，
+            // 也不与格子下方的胶囊条、易孕底色、排卵点冲突。
+            Box(
+                modifier = Modifier
+                    .size(NUMBER_RING_SIZE)
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(SELECTED_RING_WIDTH, colors.onSurfaceVariant, CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = day.date.dayOfMonth.toString(),
+                    color = when {
+                        isToday -> colors.primary
+                        day.inCurrentMonth -> colors.onSurface
+                        else -> colors.onSurfaceVariant.copy(alpha = OUT_OF_MONTH_ALPHA)
+                    },
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             Spacer(Modifier.height(2.dp))
             MarkBar(periodEdges = periodEdges, predictedEdges = predictedEdges)
         }

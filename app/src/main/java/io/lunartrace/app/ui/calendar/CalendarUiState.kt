@@ -47,6 +47,11 @@ data class CalendarUiState(
     val predictedDates: Set<LocalDate>,
     /** 用户填写的缺省值：预测卡需要它来说明"依据来自你填写，而不是算出来的"（ADR-0005）。 */
     val cycleDefaults: CycleDefaults,
-    /** 非空表示记录弹层打开。 */
-    val selected: DayDraft?,
+    /** 记录面板正在编辑哪一天。面板是内联的，所以永远有值（默认"今天"）。 */
+    val selectedDate: LocalDate,
+    /**
+     * 选中日的显示值：本地覆盖层（尚在编辑、可能还没落库的部分）合并已存数据后的结果。
+     * **面板必须读它，而不是直接读 [periods] / [entries]**，否则快速连点时会因为写库异步而丢写。
+     */
+    val record: DayDraft,
 )

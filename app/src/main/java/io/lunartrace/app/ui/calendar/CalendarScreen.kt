@@ -119,6 +119,7 @@ fun CalendarScreen(
             MonthGrid(
                 days = state.days,
                 today = state.today,
+                selectedDate = state.selectedDate,
                 periodDates = state.periods.keys,
                 predictedDates = state.predictedDates,
                 onDateClick = viewModel::onDateSelected,
@@ -128,50 +129,25 @@ fun CalendarScreen(
                 Spacer(Modifier.height(8.dp))
                 ExcludedSamplesNote(count = state.insight.stats.excludedCycleCount)
             }
+            Spacer(Modifier.height(16.dp))
+            // 记录区就在日历下方（参考设计的做法）：改记录时仍然看得见日历。
+            DayRecordPanel(draft = state.record, actions = viewModel.dayRecordActions())
             Spacer(Modifier.height(12.dp))
             Button(onClick = viewModel::onTodaySelected, modifier = Modifier.fillMaxWidth()) {
-                Text("记录今天")
+                Text("把编辑切回今天")
             }
             Spacer(Modifier.height(24.dp))
         }
     }
 
-    CalendarOverlays(
-        draft = state.selected,
-        today = state.today,
-        dayRecordActions = viewModel.dayRecordActions(),
-        showLastPeriodPicker = showLastPeriodPicker,
-        onDismissLastPeriodPicker = { showLastPeriodPicker = false },
-        onLastPeriodStartPicked = { date ->
-            showLastPeriodPicker = false
-            viewModel.onLastPeriodStartPicked(date)
-        },
-    )
-}
-
-/**
- * 覆盖在日历之上的两个浮层：单日记录弹层、零记录用户的"上次经期开始"选择。
- * 抽出来是因为 CalendarScreen 本身已经接近 detekt 的 `LongMethod` 阈值——
- * 这不是为了取悦检查器，而是再往里塞东西就会让人读不下去。
- */
-@Composable
-private fun CalendarOverlays(
-    draft: DayDraft?,
-    today: LocalDate,
-    dayRecordActions: DayRecordActions,
-    showLastPeriodPicker: Boolean,
-    onDismissLastPeriodPicker: () -> Unit,
-    onLastPeriodStartPicked: (LocalDate) -> Unit,
-) {
-    if (draft != null) {
-        DayRecordSheet(draft = draft, actions = dayRecordActions)
-    }
-
     if (showLastPeriodPicker) {
         LastPeriodStartDialog(
-            today = today,
-            onDismiss = onDismissLastPeriodPicker,
-            onConfirm = onLastPeriodStartPicked,
+            today = state.today,
+            onDismiss = { showLastPeriodPicker = false },
+            onConfirm = { date ->
+                showLastPeriodPicker = false
+                viewModel.onLastPeriodStartPicked(date)
+            },
         )
     }
 }

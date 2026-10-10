@@ -11,23 +11,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,27 +37,28 @@ private val DROPLET_SIZE = 36.dp
 private const val UNSELECTED_DROPLET_ALPHA = 0.28f
 
 /**
- * 单日记录弹层。
+ * 内联的日记录面板（在日历下方，取代了原来的模态弹层）。
  *
- * 结构是**统一的"标签行 + 内容"**（经期流量 / 症状 / 心情 / 备注），而不是一片平铺的 chip：
- * 上一版把 4 个流量 chip、10 个症状 chip、6 个心情 chip 平等铺开，用户在 20 个 chip 里找东西，
- * 层级完全依赖底色。流量改为"填充到第 N 个"的水滴，点某个水滴即选中该档。
+ * **点选即时保存**：面板里没有"保存"按钮，每次操作立刻写库。因此：
+ * - 显示值必须来自 ViewModel 的覆盖层（`CalendarUiState.record`），不能直接读数据库；
+ * - 界面要明确告诉用户"改动会立即保存"，否则用户会去找保存按钮。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayRecordSheet(draft: DayDraft, actions: DayRecordActions) {
-    ModalBottomSheet(
-        onDismissRequest = actions.onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            SheetHeader(draft)
+fun DayRecordPanel(
+    draft: DayDraft,
+    actions: DayRecordActions,
+    modifier: Modifier = Modifier,
+) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = draft.date.fullDateWithWeekdayText(), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (draft.flow == null) "这一天尚未标记为经期" else "已标记：${draft.flow.label()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             RecordRow(label = "经期流量") {
                 FlowDropletPicker(draft = draft, actions = actions)
             }
@@ -71,27 +66,22 @@ fun DayRecordSheet(draft: DayDraft, actions: DayRecordActions) {
             SymptomSection(draft = draft, actions = actions)
             MoodSection(draft = draft, actions = actions)
             NoteSection(draft = draft, actions = actions)
-            Spacer(Modifier.height(16.dp))
-            SheetButtons(actions = actions)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "记录只保存在本机，不会上传。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "改动会立即保存",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = actions.onClearDay) { Text("清空这一天") }
+            }
         }
     }
-}
-
-@Composable
-private fun SheetHeader(draft: DayDraft) {
-    Text(text = draft.date.fullDateWithWeekdayText(), style = MaterialTheme.typography.titleLarge)
-    Spacer(Modifier.height(4.dp))
-    Text(
-        text = if (draft.flow == null) "这一天尚未标记为经期" else "已标记：${draft.flow.label()}",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 /** 统一的区块结构：标签在上、内容在下。 */
@@ -105,7 +95,7 @@ private fun RecordRow(label: String, content: @Composable () -> Unit) {
 
 /**
  * 水滴流量选择器：填充到第 N 个 = 第 N 档强度。
- * 每个水滴的 `contentDescription` 是对应档位文字，读屏用户不会只听到"图标"。
+ * 依赖 `FlowIntensity` 的声明顺序由轻到重，该顺序由 `FlowIntensityOrderTest` 钉住。
  */
 @Composable
 private fun FlowDropletPicker(draft: DayDraft, actions: DayRecordActions) {
@@ -181,17 +171,5 @@ private fun NoteSection(draft: DayDraft, actions: DayRecordActions) {
             maxLines = 4,
             supportingText = { Text("${draft.note.length} / ${SymptomEntry.MAX_NOTE_LENGTH}") },
         )
-    }
-}
-
-@Composable
-private fun SheetButtons(actions: DayRecordActions) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = actions.onClearDay, modifier = Modifier.weight(1f)) {
-            Text("清空这一天")
-        }
-        Button(onClick = actions.onSave, modifier = Modifier.weight(1f)) {
-            Text("保存")
-        }
     }
 }
