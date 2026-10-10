@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -139,13 +138,14 @@ class CalendarViewModel(
         val insight = CyclePredictor.analyze(periods.map { it.date }, todayDate)
         val periodDates = periods.associate { it.date to it.flow }
         val predictedDates = insight.prediction.predictedPeriodDays.toSet()
+        val ovulationDates = setOfNotNull(insight.prediction.ovulationDay)
         val fertileWindow = insight.prediction.fertileWindow
         val symptomDates = entries.filterNot { it.isEmpty }.map { it.date }.toSet()
 
         return CalendarUiState(
             today = todayDate,
             month = month,
-            days = monthGrid(month).map { date ->
+            days = MonthGridLayout.monthGrid(month).map { date ->
                 CalendarDay(
                     date = date,
                     inCurrentMonth = YearMonth.from(date) == month,
@@ -153,6 +153,7 @@ class CalendarViewModel(
                         period = date in periodDates,
                         predicted = date in predictedDates,
                         fertile = fertileWindow?.contains(date) == true,
+                        ovulation = date in ovulationDates,
                         hasSymptoms = date in symptomDates,
                     ),
                 )
@@ -160,21 +161,12 @@ class CalendarViewModel(
             insight = insight,
             periods = periodDates,
             entries = entries.associateBy { it.date },
+            predictedDates = predictedDates,
             selected = draft,
         )
     }
 
-    /** 固定 6 行 × 7 列、周一起始，避免月份切换时网格高度跳动。 */
-    private fun monthGrid(month: YearMonth): List<LocalDate> {
-        val firstDay = month.atDay(1)
-        val leading = (firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value + DAYS_PER_WEEK) % DAYS_PER_WEEK
-        val gridStart = firstDay.minusDays(leading.toLong())
-        return (0 until GRID_CELLS).map { gridStart.plusDays(it.toLong()) }
-    }
-
     private companion object {
-        const val DAYS_PER_WEEK = 7
-        const val GRID_CELLS = 42
         const val STOP_TIMEOUT_MILLIS = 5_000L
     }
 }

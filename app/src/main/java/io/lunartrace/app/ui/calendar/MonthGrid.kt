@@ -3,16 +3,19 @@ package io.lunartrace.app.ui.calendar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,27 +23,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
-private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
-private const val CELLS_PER_ROW = 7
+private val WEEKDAY_LABELS = listOf("日", "一", "二", "三", "四", "五", "六")
 private const val OUT_OF_MONTH_ALPHA = 0.35f
-private val CELL_PADDING = 2.dp
-private val PREDICTED_BORDER = 1.5.dp
-private val TODAY_BORDER = 2.dp
-private val SYMPTOM_DOT_SIZE = 4.dp
-private val SYMPTOM_DOT_PADDING = 6.dp
+private const val PREDICTED_BORDER_ALPHA = 0.5f
+
+private val CELL_PADDING = 1.dp
+private val CELL_CORNER = 6.dp
+private val PILL_HEIGHT = 8.dp
+private val PILL_HORIZONTAL_PADDING = 4.dp
+private val PILL_RADIUS = 4.dp
+private val DOT_SIZE = 4.dp
+private val SYMPTOM_DOT_PADDING = 4.dp
+private val OVULATION_DOT_PADDING = 2.dp
 
 /**
- * 月视图网格：固定 6 行 × 7 列，周一起始（中文习惯）。
- * 三类标记必须视觉可区分：实测经期（实心）/ 预计经期（描边）/ 易孕窗口（浅色底）。
+ * 月视图网格：固定 6 行 × 7 列，周日起始。
+ *
+ * 标记语义（与图例一致）：
+ * - 经期日 → 实心胶囊；预测经期日 → 空心胶囊；连续多天连成一条带（见 [MonthGridLayout.ribbonEdges]）
+ * - 易孕窗口 → 格子浅黄底（`tertiaryContainer`）
+ * - 排卵日 → 底部居中橙点（`tertiary`）；有症状记录 → 右上角灰点（`secondary`），两者位置分开以免遮挡
  */
 @Composable
 fun MonthGrid(
     days: List<CalendarDay>,
     today: LocalDate,
+    periodDates: Set<LocalDate>,
+    predictedDates: Set<LocalDate>,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -57,12 +72,18 @@ fun MonthGrid(
             }
         }
         Spacer(Modifier.height(4.dp))
-        days.chunked(CELLS_PER_ROW).forEach { week ->
+        days.chunked(MonthGridLayout.CELLS_PER_ROW).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { day ->
                     DayCell(
                         day = day,
                         isToday = day.date == today,
+                        periodEdges = if (day.marks.period) MonthGridLayout.ribbonEdges(periodDates, day.date) else null,
+                        predictedEdges = if (day.marks.predicted) {
+                            MonthGridLayout.ribbonEdges(predictedDates, day.date)
+                        } else {
+                            null
+                        },
                         onClick = { onDateClick(day.date) },
                         modifier = Modifier.weight(1f),
                     )
@@ -76,6 +97,8 @@ fun MonthGrid(
 private fun DayCell(
     day: CalendarDay,
     isToday: Boolean,
+    periodEdges: RibbonEdges?,
+    predictedEdges: RibbonEdges?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -86,41 +109,77 @@ private fun DayCell(
         modifier = modifier
             .aspectRatio(1f)
             .padding(CELL_PADDING)
-            .clip(CircleShape)
-            .background(
-                when {
-                    marks.period -> colors.primary
-                    marks.fertile -> colors.primaryContainer
-                    else -> Color.Transparent
-                },
-            )
-            .then(
-                if (marks.predicted) Modifier.border(PREDICTED_BORDER, colors.tertiary, CircleShape) else Modifier,
-            )
-            .then(
-                if (isToday) Modifier.border(TODAY_BORDER, colors.secondary, CircleShape) else Modifier,
-            )
+            .clip(RoundedCornerShape(CELL_CORNER))
+            .background(if (marks.fertile) colors.tertiaryContainer else Color.Transparent)
             .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = day.date.dayOfMonth.toString(),
-            color = when {
-                marks.period -> colors.onPrimary
-                day.inCurrentMonth -> colors.onSurface
-                else -> colors.onSurfaceVariant.copy(alpha = OUT_OF_MONTH_ALPHA)
-            },
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        if (marks.hasSymptoms) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = day.date.dayOfMonth.toString(),
+                color = when {
+                    isToday -> colors.primary
+                    day.inCurrentMonth -> colors.onSurface
+                    else -> colors.onSurfaceVariant.copy(alpha = OUT_OF_MONTH_ALPHA)
+                },
+                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(2.dp))
+            MarkBar(periodEdges = periodEdges, predictedEdges = predictedEdges)
+        }
+        if (marks.ovulation) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = SYMPTOM_DOT_PADDING)
-                    .size(SYMPTOM_DOT_SIZE)
+                    .padding(bottom = OVULATION_DOT_PADDING)
+                    .size(DOT_SIZE)
+                    .clip(CircleShape)
+                    .background(colors.tertiary),
+            )
+        }
+        if (marks.hasSymptoms) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(SYMPTOM_DOT_PADDING)
+                    .size(DOT_SIZE)
                     .clip(CircleShape)
                     .background(colors.secondary),
             )
         }
     }
+}
+
+/** 格子下方的胶囊条：经期实心、预测经期空心；两者都没有时留一条透明占位以保持各行基线一致。 */
+@Composable
+private fun MarkBar(periodEdges: RibbonEdges?, predictedEdges: RibbonEdges?) {
+    val colors = MaterialTheme.colorScheme
+    val edges = periodEdges ?: predictedEdges
+    val shape = ribbonShape(edges)
+    val base = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = PILL_HORIZONTAL_PADDING)
+        .height(PILL_HEIGHT)
+
+    when {
+        periodEdges != null -> Box(base.background(colors.primary, shape))
+        predictedEdges != null -> Box(base.border(1.dp, colors.primary.copy(alpha = PREDICTED_BORDER_ALPHA), shape))
+        else -> Spacer(base)
+    }
+}
+
+/** 只在外侧端倒圆角：左端 [RibbonEdges.start]、右端 [RibbonEdges.end]。 */
+private fun ribbonShape(edges: RibbonEdges?): Shape {
+    val startRadius = if (edges?.start != false) PILL_RADIUS else 0.dp
+    val endRadius = if (edges?.end != false) PILL_RADIUS else 0.dp
+    return RoundedCornerShape(
+        topStart = startRadius,
+        bottomStart = startRadius,
+        topEnd = endRadius,
+        bottomEnd = endRadius,
+    )
 }

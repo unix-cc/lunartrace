@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -27,11 +28,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +51,7 @@ import io.lunartrace.app.ui.common.monthDayText
 import io.lunartrace.app.ui.common.notEnoughRecordsText
 import io.lunartrace.app.ui.common.titleText
 import io.lunartrace.app.ui.lunartraceViewModelFactory
+import io.lunartrace.app.ui.theme.LunartraceHeaderGradient
 import java.time.YearMonth
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +71,12 @@ fun CalendarScreen(
                         Icon(Icons.Filled.Settings, contentDescription = "设置")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White,
+                ),
+                modifier = Modifier.background(Brush.verticalGradient(LunartraceHeaderGradient)),
             )
         },
     ) { padding ->
@@ -87,6 +98,8 @@ fun CalendarScreen(
             MonthGrid(
                 days = state.days,
                 today = state.today,
+                periodDates = state.periods.keys,
+                predictedDates = state.predictedDates,
                 onDateClick = viewModel::onDateSelected,
             )
             CalendarLegend()
@@ -209,38 +222,38 @@ private fun CalendarLegend() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         LegendItem(text = "经期") {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
+                    .size(width = 16.dp, height = 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.primary),
             )
         }
-        LegendItem(text = "预计经期") {
+        LegendItem(text = "预测经期") {
+            Box(
+                modifier = Modifier
+                    .size(width = 16.dp, height = 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(4.dp)),
+            )
+        }
+        LegendItem(text = "易孕期") {
             Box(
                 modifier = Modifier
                     .size(12.dp)
-                    .clip(CircleShape)
-                    .border(1.5.dp, MaterialTheme.colorScheme.tertiary, CircleShape),
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.tertiaryContainer),
             )
         }
-        LegendItem(text = "易孕窗口") {
+        LegendItem(text = "排卵日") {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            )
-        }
-        LegendItem(text = "有症状记录") {
-            Box(
-                modifier = Modifier
-                    .size(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondary),
+                    .background(MaterialTheme.colorScheme.tertiary),
             )
         }
     }

@@ -8,11 +8,13 @@ import io.lunartrace.app.domain.model.SymptomEntry
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** 一天上可能出现的四类标记。它们可以叠加（例如实测经期同时落在易孕窗口内）。 */
+/** 一天上可能出现的标记。它们可以叠加（例如实测经期同时落在易孕窗口内）。 */
 data class DayMarks(
     val period: Boolean = false,
     val predicted: Boolean = false,
     val fertile: Boolean = false,
+    /** 预计排卵日（单日）。仅 `confidence ≥ MEDIUM` 时可能为真。 */
+    val ovulation: Boolean = false,
     val hasSymptoms: Boolean = false,
 )
 
@@ -40,6 +42,8 @@ data class CalendarUiState(
     val insight: CycleInsight,
     val periods: Map<LocalDate, FlowIntensity>,
     val entries: Map<LocalDate, SymptomEntry>,
+    /** 预计经期日集合：网格需要它来判断"胶囊横条"该在哪一天倒角（见 `MonthGridLayout.ribbonEdges`）。 */
+    val predictedDates: Set<LocalDate>,
     /** 非空表示记录弹层打开。 */
     val selected: DayDraft?,
 )
