@@ -20,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,8 +31,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,11 +56,12 @@ import io.lunartrace.app.ui.common.excludedSamplesText
 import io.lunartrace.app.ui.common.label
 import io.lunartrace.app.ui.common.labelOrNull
 import io.lunartrace.app.ui.common.monthDayText
-import io.lunartrace.app.ui.common.notEnoughRecordsText
+import io.lunartrace.app.ui.common.text
 import io.lunartrace.app.ui.common.titleText
 import io.lunartrace.app.ui.common.userDefaultBasisText
 import io.lunartrace.app.ui.lunartraceViewModelFactory
 import io.lunartrace.app.ui.theme.LunartraceHeaderGradient
+import java.time.LocalDate
 import java.time.YearMonth
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +71,7 @@ fun CalendarScreen(
     viewModel: CalendarViewModel = viewModel(factory = lunartraceViewModelFactory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showLastPeriodPicker by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,7 +98,17 @@ fun CalendarScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            PredictionCard(insight = state.insight, cycleDefaults = state.cycleDefaults)
+            PredictionCard(
+                insight = state.insight,
+                cycleDefaults = state.cycleDefaults,
+                hint = PredictionHints.of(
+                    hasPeriodRecords = state.periods.isNotEmpty(),
+                    hasDefaultCycleLength = state.cycleDefaults.cycleLengthDays != null,
+                    hasPrediction = state.insight.prediction.nextPeriodStart != null,
+                ),
+                onRecordLastPeriodStart = { showLastPeriodPicker = true },
+                onOpenSettings = onOpenSettings,
+            )
             Spacer(Modifier.height(8.dp))
             MonthSwitcher(
                 month = state.month,
@@ -118,14 +136,106 @@ fun CalendarScreen(
         }
     }
 
-    val draft = state.selected
+    CalendarOverlays(
+        draft = state.selected,
+        today = state.today,
+        dayRecordActions = viewModel.dayRecordActions(),
+        showLastPeriodPicker = showLastPeriodPicker,
+        onDismissLastPeriodPicker = { showLastPeriodPicker = false },
+        onLastPeriodStartPicked = { date ->
+            showLastPeriodPicker = false
+            viewModel.onLastPeriodStartPicked(date)
+        },
+    )
+}
+
+/**
+ * 覆盖在日历之上的两个浮层：单日记录弹层、零记录用户的"上次经期开始"选择。
+ * 抽出来是因为 CalendarScreen 本身已经接近 detekt 的 `LongMethod` 阈值——
+ * 这不是为了取悦检查器，而是再往里塞东西就会让人读不下去。
+ */
+@Composable
+private fun CalendarOverlays(
+    draft: DayDraft?,
+    today: LocalDate,
+    dayRecordActions: DayRecordActions,
+    showLastPeriodPicker: Boolean,
+    onDismissLastPeriodPicker: () -> Unit,
+    onLastPeriodStartPicked: (LocalDate) -> Unit,
+) {
     if (draft != null) {
-        DayRecordSheet(draft = draft, actions = viewModel.dayRecordActions())
+        DayRecordSheet(draft = draft, actions = dayRecordActions)
+    }
+
+    if (showLastPeriodPicker) {
+        LastPeriodStartDialog(
+            today = today,
+            onDismiss = onDismissLastPeriodPicker,
+            onConfirm = onLastPeriodStartPicked,
+        )
+    }
+}
+
+/**
+ * 零记录用户的日期选择。不允许确认未来的日期（"上次经期开始日"不可能是将来），
+ * 且转换固定按 UTC 解释（见 [DatePickerConversion]）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LastPeriodStartDialog(
+    today: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate) -> Unit,
+) {
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = DatePickerConversion.toUtcMillis(today),
+    )
+    val selectedDate = pickerState.selectedDateMillis?.let(DatePickerConversion::toLocalDate)
+    val isFutureSelected = selectedDate != null && selectedDate.isAfter(today)
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { selectedDate?.let(onConfirm) },
+                enabled = selectedDate != null && !isFutureSelected,
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    ) {
+        Column {
+            DatePicker(
+                state = pickerState,
+                title = {
+                    Text(
+                        text = "上次经期是哪天开始的？",
+                        modifier = Modifier.padding(start = 24.dp, top = 16.dp),
+                    )
+                },
+                showModeToggle = false,
+            )
+            if (isFutureSelected) {
+                Text(
+                    text = "不能选择未来的日期",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun PredictionCard(insight: CycleInsight, cycleDefaults: CycleDefaults) {
+private fun PredictionCard(
+    insight: CycleInsight,
+    cycleDefaults: CycleDefaults,
+    hint: PredictionHint,
+    onRecordLastPeriodStart: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val prediction = insight.prediction
     val nextStart = prediction.nextPeriodStart
 
@@ -134,14 +244,24 @@ private fun PredictionCard(insight: CycleInsight, cycleDefaults: CycleDefaults) 
             if (nextStart == null) {
                 Text(text = "还不能给出预计", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    text = notEnoughRecordsText(
-                        episodeCount = insight.stats.episodeCount,
-                        requiredEpisodes = CyclePredictor.MIN_EPISODES_FOR_PHASE,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                hint.text(requiredEpisodesForPhase = CyclePredictor.MIN_EPISODES_FOR_PHASE)?.let { hintText ->
+                    Text(
+                        text = hintText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (hint == PredictionHint.RECORD_FIRST_PERIOD ||
+                    hint == PredictionHint.RECORD_FIRST_PERIOD_OR_SET_DEFAULTS
+                ) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onRecordLastPeriodStart) { Text("记录上次经期开始") }
+                        if (hint == PredictionHint.RECORD_FIRST_PERIOD_OR_SET_DEFAULTS) {
+                            TextButton(onClick = onOpenSettings) { Text("去设置填周期长度") }
+                        }
+                    }
+                }
             } else {
                 Text(
                     text = "下次经期预计 ${nextStart.monthDayText()}",

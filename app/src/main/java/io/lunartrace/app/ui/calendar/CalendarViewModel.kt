@@ -88,6 +88,26 @@ class CalendarViewModel(
 
     fun onTodaySelected() = onDateSelected(today.date())
 
+    /**
+     * 零记录用户的入口：把选中的日期写成一条**正常的经期记录**（不另建设置项，避免出现两个事实源），
+     * 并立刻打开该日的记录弹层，让用户看到并可修改预填的流量。
+     *
+     * 这里直接构造草稿而不是回读 `uiState`：写库是异步的，回读可能读到还没刷新的状态。
+     */
+    fun onLastPeriodStartPicked(date: LocalDate) {
+        viewModelScope.launch {
+            repository.setPeriodDay(date, FlowIntensity.MEDIUM)
+            month.value = YearMonth.from(date)
+            selection.value = DayDraft(
+                date = date,
+                flow = FlowIntensity.MEDIUM,
+                symptoms = emptySet(),
+                mood = null,
+                note = "",
+            )
+        }
+    }
+
     fun onSheetDismissed() {
         selection.value = null
     }

@@ -5,6 +5,7 @@ import io.lunartrace.app.domain.model.CyclePhase
 import io.lunartrace.app.domain.model.FlowIntensity
 import io.lunartrace.app.domain.model.Mood
 import io.lunartrace.app.domain.model.Symptom
+import io.lunartrace.app.ui.calendar.PredictionHint
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -74,10 +75,22 @@ fun userDefaultBasisText(cycleLengthDays: Int?, requiredEpisodes: Int): String {
 /** 设置项里显示天数；未填写时明确显示"未填写"，不显示一个看起来像默认值的数字。 */
 fun optionalDaysText(days: Int?): String = days?.let { "$it 天" } ?: "未填写"
 
-/** 数据不足时的进度说明：把"还差几次"讲清楚，避免用户以为功能坏了（见 ADR-0004 代价 1）。 */
-fun notEnoughRecordsText(episodeCount: Int, requiredEpisodes: Int): String {
-    val remaining = (requiredEpisodes - episodeCount).coerceAtLeast(1)
-    return "再记录 $remaining 次经期开始，就会显示下次经期预计与周期阶段。"
+/**
+ * 空状态提示文案。
+ *
+ * 注意门槛是**两档**，不能混成一句：记录 1 次（或填了缺省值 + 记录 1 次）就能看到"下次经期预计"，
+ * 而"周期阶段"需要更多记录。上一轮的文案把两档混在一起，等于对用户说了假话。
+ */
+fun PredictionHint.text(requiredEpisodesForPhase: Int): String? = when (this) {
+    PredictionHint.NONE -> null
+    PredictionHint.RECORD_FIRST_PERIOD ->
+        "只要记录一次经期开始，就能看到下次经期预计；周期阶段需要记录满 $requiredEpisodesForPhase 次。"
+    PredictionHint.RECORD_FIRST_PERIOD_OR_SET_DEFAULTS ->
+        "记录一次经期开始，或先在设置里填写你的周期长度，就能看到下次经期预计；" +
+            "周期阶段需要记录满 $requiredEpisodesForPhase 次。"
+    PredictionHint.CHECK_RECORDS ->
+        "暂时无法推算（记录间隔过久，或周期长度超出 15–60 天范围）；" +
+            "周期阶段需要记录满 $requiredEpisodesForPhase 次。"
 }
 
 fun LocalDate.monthDayText(): String = "${monthValue}月${dayOfMonth}日"
