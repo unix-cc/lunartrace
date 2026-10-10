@@ -1,0 +1,231 @@
+package io.lunartrace.app.ui.calendar
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.lunartrace.app.R
+import io.lunartrace.app.domain.model.CycleInsight
+import io.lunartrace.app.ui.common.excludedSamplesText
+import io.lunartrace.app.ui.common.label
+import io.lunartrace.app.ui.common.monthDayText
+import io.lunartrace.app.ui.common.titleText
+import io.lunartrace.app.ui.lunartraceViewModelFactory
+import java.time.YearMonth
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CalendarScreen(
+    onOpenSettings: () -> Unit,
+    viewModel: CalendarViewModel = viewModel(factory = lunartraceViewModelFactory),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        ) {
+            PredictionCard(insight = state.insight)
+            Spacer(Modifier.height(8.dp))
+            MonthSwitcher(
+                month = state.month,
+                onPrevious = viewModel::onPreviousMonth,
+                onNext = viewModel::onNextMonth,
+                onToday = viewModel::onJumpToToday,
+            )
+            MonthGrid(
+                days = state.days,
+                today = state.today,
+                onDateClick = viewModel::onDateSelected,
+            )
+            CalendarLegend()
+            if (state.insight.stats.excludedCycleCount > 0) {
+                Spacer(Modifier.height(8.dp))
+                ExcludedSamplesNote(count = state.insight.stats.excludedCycleCount)
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = viewModel::onTodaySelected, modifier = Modifier.fillMaxWidth()) {
+                Text("记录今天")
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    val draft = state.selected
+    if (draft != null) {
+        DayRecordSheet(draft = draft, actions = viewModel.dayRecordActions())
+    }
+}
+
+@Composable
+private fun PredictionCard(insight: CycleInsight) {
+    val prediction = insight.prediction
+    val nextStart = prediction.nextPeriodStart
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (nextStart == null) {
+                Text(text = "还没有足够的记录", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "至少记录两次经期开始，才能给出预计。记录越多，预计越可靠。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = "下次经期预计 ${nextStart.monthDayText()}",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = prediction.confidence.label(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val fertileWindow = prediction.fertileWindow
+                if (fertileWindow != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "易孕窗口预计 ${fertileWindow.start.monthDayText()} – " +
+                            fertileWindow.endInclusive.monthDayText(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthSwitcher(
+    month: YearMonth,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = onPrevious) { Text("上一月") }
+        Text(text = month.titleText(), style = MaterialTheme.typography.titleMedium)
+        Row {
+            TextButton(onClick = onToday) { Text("今天") }
+            TextButton(onClick = onNext) { Text("下一月") }
+        }
+    }
+}
+
+@Composable
+private fun CalendarLegend() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        LegendItem(text = "经期") {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+        }
+        LegendItem(text = "预计经期") {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .border(1.5.dp, MaterialTheme.colorScheme.tertiary, CircleShape),
+            )
+        }
+        LegendItem(text = "易孕窗口") {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+            )
+        }
+        LegendItem(text = "有症状记录") {
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(text: String, marker: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        marker()
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ExcludedSamplesNote(count: Int) {
+    Text(
+        text = excludedSamplesText(count),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}

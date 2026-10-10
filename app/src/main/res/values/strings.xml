@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- P0 只做中文；其余 UI 文案集中在 ui/common/Labels.kt（见 specs/changes/mvp-period-tracking/spec.md）。 -->
+    <string name="app_name">月迹</string>
+</resources>

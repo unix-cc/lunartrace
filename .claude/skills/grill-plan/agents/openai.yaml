@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grill Plan"
+  short_description: "把模糊需求收敛成可审计划，并做带证据的对抗审查"
+  default_prompt: "用 grill-plan 收敛这次改动：先核对事实，再出计划草案，然后逐条给带证据的审查意见。"

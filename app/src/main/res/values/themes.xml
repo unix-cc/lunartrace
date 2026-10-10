@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 只给 Activity 一个无色框架主题；真实配色由 Compose 的 LunartraceTheme 提供。 -->
+    <style name="Theme.Lunartrace" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

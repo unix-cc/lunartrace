@@ -1,0 +1,24 @@
+# CODEOWNERS —— 已启用（不是注释状态）。
+#
+# 单人项目里它的作用不是"找人评审"，而是把**敏感路径钉成强制自审清单**：
+# 改动命中下列路径时，必须在 docs/reviews/ 留下一条双轴自审记录
+# （见 docs/agents/workflow.md §5）。
+#
+# 注意：把 owner 替换成你真实的 GitHub 账号/handle 后，才能配合 branch protection 生效。
+
+# 默认归属：唯一维护者
+*                                                       @unix-cc
+
+# 隐私红线路径：改动即触发强制自审
+/app/src/main/AndroidManifest.xml                       @unix-cc
+/app/src/main/java/io/lunartrace/app/data/security/     @unix-cc
+/app/src/main/java/io/lunartrace/app/data/prefs/        @unix-cc
+
+# 预测口径：改动会改变历史数据的解读方式
+/app/src/main/java/io/lunartrace/app/domain/prediction/ @unix-cc
+/specs/capabilities/cycle-prediction.md                 @unix-cc
+
+# 门禁与文档事实源本身
+/scripts/                                               @unix-cc
+/CLAUDE.md                                              @unix-cc
+/specs/                                                 @unix-cc

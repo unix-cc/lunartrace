@@ -1,0 +1,25 @@
+# --- Android / Gradle ---
+.gradle/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- IDE ---
+.idea/
+*.iml
+*.hprof
+
+# --- Kotlin ---
+.kotlin/
+
+# --- 签名（永不入库） ---
+keystore.properties
+*.jks
+*.keystore
+
+# --- OS ---
+.DS_Store
+Thumbs.db

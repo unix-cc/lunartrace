@@ -1,0 +1,4 @@
+interface:
+  display_name: "To Spec"
+  short_description: "把已收敛的对话固化成 change spec（含必填的测试接缝）"
+  default_prompt: "把当前对话收敛成 change spec，务必写全 Testing Decisions，状态置为 ready。"

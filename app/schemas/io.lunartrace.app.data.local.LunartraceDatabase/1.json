@@ -1,0 +1,78 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "82e1912e4a74185ed1f43ccc6442073e",
+    "entities": [
+      {
+        "tableName": "period_days",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`date` INTEGER NOT NULL, `flow` TEXT NOT NULL, PRIMARY KEY(`date`))",
+        "fields": [
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "flow",
+            "columnName": "flow",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "date"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "symptom_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`date` INTEGER NOT NULL, `symptoms` TEXT NOT NULL, `mood` TEXT, `note` TEXT, PRIMARY KEY(`date`))",
+        "fields": [
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "symptoms",
+            "columnName": "symptoms",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mood",
+            "columnName": "mood",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "date"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '82e1912e4a74185ed1f43ccc6442073e')"
+    ]
+  }
+}

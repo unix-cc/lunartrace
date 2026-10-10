@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review"
+  short_description: "双轴代码审查（Standards / Spec），分列不合并"
+  default_prompt: "对当前工作区 diff 做双轴审查：Standards 轴对照能力契约，Spec 轴对照 change spec；两轴分列汇报。"

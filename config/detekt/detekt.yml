@@ -1,0 +1,71 @@
+# detekt 配置：以默认规则为基线，只调整与 Android/Compose 实际情况冲突的阈值。
+# 用法：./gradlew detekt（L1 门禁）。任何 maxIssues > 0 都会让提交失败。
+build:
+  maxIssues: 0
+  weights: {}
+
+complexity:
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+  CyclomaticComplexMethod:
+    threshold: 20
+  TooManyFunctions:
+    # Compose 界面文件天然包含多个小 Composable，按文件计数会产生噪音
+    active: false
+  LargeClass:
+    threshold: 600
+
+style:
+  MagicNumber:
+    ignoreNumbers: ['-1', '0', '1', '2', '3', '5', '7', '14', '30', '100']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreEnums: true
+  MaxLineLength:
+    maxLineLength: 150
+  ReturnCount:
+    max: 6
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']
+  LoopWithTooManyJumpStatements:
+    maxJumpCount: 3
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][_A-Z0-9]*'
+
+formatting:
+  active: true
+  # 下列规则在 Compose 的多行调用上噪音过大，主动关闭（不是"忽略失败"，是明确不采用该风格约束）
+  ArgumentListWrapping:
+    active: false
+  ParameterListWrapping:
+    active: false
+  ParameterWrapping:
+    active: false
+  PropertyWrapping:
+    active: false
+  MultilineExpressionWrapping:
+    active: false
+  FunctionSignature:
+    active: false
+  Wrapping:
+    active: false
+  TrailingComma:
+    active: false
+  CommentWrapping:
+    active: false
+  KdocWrapping:
+    active: false
+  ImportOrdering:
+    active: false
+  MaximumLineLength:
+    active: false
+  Filename:
+    active: false

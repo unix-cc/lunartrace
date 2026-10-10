@@ -1,0 +1,55 @@
+name: android
+
+# 注意：本 workflow 计划作为 required status check，因此 pull_request 触发**不加 paths 过滤**。
+# 带 paths 的 workflow 在未命中的 PR 上不会报告状态，required 会永远卡在 Expected，导致无法合并。
+# 需要跳过时在 job 内部判断，而不是在触发条件上过滤。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 安装 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
+
+      - name: 隐私红线
+        run: python3 scripts/check-privacy-guards.py
+
+      - name: 文档一致性（入口漂移 / spec 状态 / CODEOWNERS 空转）
+        run: python3 scripts/check-docs.py
+
+      - name: 静态检查 + 单元测试
+        run: ./gradlew --console=plain detekt testDebugUnitTest
+
+      - name: 覆盖率硬门禁（domain/prediction、data/security）
+        run: ./gradlew --console=plain jacocoTestReport && python3 scripts/check-coverage.py
+
+      - name: 打包调试包（编译冒烟）
+        run: ./gradlew --console=plain :app:assembleDebug
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore

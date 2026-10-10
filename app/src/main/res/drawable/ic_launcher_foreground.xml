@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 圆环 + 中心点：表示"周期"，不使用任何医疗或性别刻板符号 -->
+    <path
+        android:fillColor="#FFF8F9"
+        android:pathData="M54,24a30,30 0 1,0 0.1,0z" />
+    <path
+        android:fillColor="#8E4A5B"
+        android:pathData="M54,38a16,16 0 1,0 0.1,0z" />
+    <path
+        android:fillColor="#FFF8F9"
+        android:pathData="M54,50a4,4 0 1,0 0.1,0z" />
+</vector>
