@@ -101,4 +101,10 @@ fun excludedSamplesText(count: Int): String =
 
 fun LocalDate.fullDateText(): String = "${year}年${monthValue}月${dayOfMonth}日"
 
+/** `DayOfWeek.value` 是 1=周一 .. 7=周日，正好对应下面的下标。 */
+private val WEEKDAY_TEXT = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+
+/** 例：2026年10月10日 周六 */
+fun LocalDate.fullDateWithWeekdayText(): String = "${fullDateText()} ${WEEKDAY_TEXT[dayOfWeek.value - 1]}"
+
 fun YearMonth.titleText(): String = "${year}年${monthValue}月"
