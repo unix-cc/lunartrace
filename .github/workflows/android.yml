@@ -87,6 +87,15 @@ jobs:
       - name: 打包调试包（编译冒烟）
         run: ./gradlew --console=plain :app:assembleDebug
 
+      # 让"去哪里弄安装包"变成一个可下载的答案，而不是"你得在本地构建"。
+      # debug 包用 debug keystore 签名，可以直接装到手机上（会与本机 Android Studio 的 debug 包互斥）。
+      - name: 上传调试安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunartrace-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
       - name: 上传测试报告
         if: always()
         uses: actions/upload-artifact@v4
