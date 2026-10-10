@@ -34,26 +34,40 @@ jobs:
       - name: 补齐 gradlew 可执行位
         run: chmod +x ./gradlew
 
-      # 不依赖 android-actions/setup-android：该 action 仍在 Node 20 上（被强制跑在 Node 24），
-      # 且 2026-10-10 的三次运行都死在它这一步（后续步骤全部 skipped）。
-      # runner 镜像自带 SDK 与 cmdline-tools，显式调用 sdkmanager 少一层黑盒，失败信息也更明确。
-      - name: 安装 Android SDK 组件
+      # 不依赖 android-actions/setup-android（该 action 仍在 Node 20，已被强制跑在 Node 24）。
+      # 为什么要拆成两步：本地读不到 CI 日志（下载日志需要鉴权），能看到的只有"哪一步失败"。
+      # 把"定位/下载 cmdline-tools"与"接受许可+安装"拆开，失败时步骤名本身就给出定位信息。
+      - name: 准备 Android SDK（定位或下载 cmdline-tools）
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          if [ ! -d "$SDK_ROOT" ]; then
-            echo "::error::找不到 Android SDK（尝试过 ANDROID_SDK_ROOT / ANDROID_HOME / 默认路径 $SDK_ROOT）"
-            ls -la /usr/local/lib/ || true
-            exit 1
-          fi
+          mkdir -p "$SDK_ROOT"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
-            echo "::error::找不到 sdkmanager：$SDKMANAGER"
+            echo "本地没有 sdkmanager，改为从 dl.google.com 下载 command line tools（$SDK_ROOT）"
             ls -la "$SDK_ROOT" || true
-            exit 1
+            curl -fsSL -o /tmp/cmdline-tools.zip \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            rm -rf /tmp/cmdline-unzip
+            mkdir -p /tmp/cmdline-unzip "$SDK_ROOT/cmdline-tools"
+            unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-unzip
+            mv /tmp/cmdline-unzip/cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
           fi
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          yes | "$SDKMANAGER" --licenses > /dev/null
+          {
+            echo "ANDROID_SDK_ROOT=$SDK_ROOT"
+            echo "ANDROID_HOME=$SDK_ROOT"
+          } >> "$GITHUB_ENV"
+          "$SDKMANAGER" --version
+
+      - name: 接受许可并安装 platform-tools / android-34 / build-tools
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:?未设置：上一步应已写入 GITHUB_ENV}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          # 不要写 `yes | sdkmanager --licenses`：带 pipefail 时 yes 会因 SIGPIPE 被 SIGTERM，
+          # 整条管道被判失败——把"正常结束"当成错误。用文件喂输入，彻底避开管道。
+          printf 'y\n%.0s' $(seq 1 50) > /tmp/android-licenses.txt
+          "$SDKMANAGER" --licenses < /tmp/android-licenses.txt > /dev/null
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: 缓存 Gradle
