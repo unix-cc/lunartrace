@@ -31,6 +31,11 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
 
+      - name: 补齐 gradlew 可执行位
+        # Windows 上提交的文件默认不带 exec 位（本仓库确实出现过 100644 的 gradlew），
+        # 缺了它 CI 会在 ./gradlew 上直接 Permission denied。
+        run: chmod +x ./gradlew
+
       - name: 隐私红线
         run: python3 scripts/check-privacy-guards.py
 
