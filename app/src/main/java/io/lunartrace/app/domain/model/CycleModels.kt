@@ -98,6 +98,11 @@ data class CyclePrediction(
     val fertileWindow: ClosedRange<LocalDate>?,
     val confidence: Confidence,
     val basis: PredictionBasis = PredictionBasis.NONE,
+    /**
+     * 本次预测实际使用的基准周期长度（实测均值，或用户填写的缺省值）。
+     * **不改变任何预测行为**，只是把"用了多少天当基准"说出来，供周期环与文案使用。
+     */
+    val basisCycleLengthDays: Int? = null,
 ) {
     companion object {
         /** 无预测。 */
@@ -108,6 +113,7 @@ data class CyclePrediction(
             fertileWindow = null,
             confidence = Confidence.NONE,
             basis = PredictionBasis.NONE,
+            basisCycleLengthDays = null,
         )
     }
 }

@@ -49,12 +49,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.lunartrace.app.R
 import io.lunartrace.app.domain.model.CycleDefaults
 import io.lunartrace.app.domain.model.CycleInsight
-import io.lunartrace.app.domain.model.CyclePosition
 import io.lunartrace.app.domain.model.PredictionBasis
 import io.lunartrace.app.domain.prediction.CyclePredictor
 import io.lunartrace.app.ui.common.excludedSamplesText
 import io.lunartrace.app.ui.common.label
-import io.lunartrace.app.ui.common.labelOrNull
 import io.lunartrace.app.ui.common.monthDayText
 import io.lunartrace.app.ui.common.text
 import io.lunartrace.app.ui.common.titleText
@@ -98,14 +96,8 @@ fun CalendarScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            PredictionCard(
-                insight = state.insight,
-                cycleDefaults = state.cycleDefaults,
-                hint = PredictionHints.of(
-                    hasPeriodRecords = state.periods.isNotEmpty(),
-                    hasDefaultCycleLength = state.cycleDefaults.cycleLengthDays != null,
-                    hasPrediction = state.insight.prediction.nextPeriodStart != null,
-                ),
+            CalendarTopSection(
+                state = state,
                 onRecordLastPeriodStart = { showLastPeriodPicker = true },
                 onOpenSettings = onOpenSettings,
             )
@@ -204,6 +196,36 @@ private fun LastPeriodStartDialog(
     }
 }
 
+/**
+ * 页面顶部：周期环 + 预测卡。
+ * 抽出来是因为 `CalendarScreen` 已经贴着 detekt 的 `LongMethod` 阈值——
+ * 再往里加东西就会让人读不下去。
+ */
+@Composable
+private fun CalendarTopSection(
+    state: CalendarUiState,
+    onRecordLastPeriodStart: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    CycleRingSection(
+        data = state.ring,
+        today = state.today,
+        phase = state.insight.position.phase,
+    )
+    Spacer(Modifier.height(8.dp))
+    PredictionCard(
+        insight = state.insight,
+        cycleDefaults = state.cycleDefaults,
+        hint = PredictionHints.of(
+            hasPeriodRecords = state.periods.isNotEmpty(),
+            hasDefaultCycleLength = state.cycleDefaults.cycleLengthDays != null,
+            hasPrediction = state.insight.prediction.nextPeriodStart != null,
+        ),
+        onRecordLastPeriodStart = onRecordLastPeriodStart,
+        onOpenSettings = onOpenSettings,
+    )
+}
+
 @Composable
 private fun PredictionCard(
     insight: CycleInsight,
@@ -280,29 +302,8 @@ private fun PredictionCard(
                     )
                 }
             }
-            CurrentPositionLine(position = insight.position)
         }
     }
-}
-
-/**
- * "今天处于哪个阶段 · 周期第几天"。
- * 周期天数是事实，任何数据量下都显示；阶段是推算，`UNKNOWN` 时只显示事实那一半。
- */
-@Composable
-private fun CurrentPositionLine(position: CyclePosition) {
-    val cycleDay = position.cycleDay ?: return
-    val phaseLabel = position.phase.labelOrNull()
-
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text = if (phaseLabel == null) {
-            "今天是本次周期第 $cycleDay 天"
-        } else {
-            "今天处于$phaseLabel · 周期第 $cycleDay 天"
-        },
-        style = MaterialTheme.typography.titleSmall,
-    )
 }
 
 @Composable

@@ -148,6 +148,7 @@ object CyclePredictor {
             fertileWindow = ovulationDay?.let(::fertileWindow),
             confidence = effectiveConfidence,
             basis = basis,
+            basisCycleLengthDays = basisDays,
         )
     }
 

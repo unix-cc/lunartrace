@@ -26,7 +26,7 @@ data class CalendarDay(
     val marks: DayMarks,
 )
 
-/** 记录弹层的编辑中状态（尚未落库）。`flow == null` 表示"这一天不是经期"。 */
+/** 记录面板的编辑中状态（可能尚未落库）。`flow == null` 表示"这一天不是经期"。 */
 data class DayDraft(
     val date: LocalDate,
     val flow: FlowIntensity?,
@@ -38,7 +38,7 @@ data class DayDraft(
 data class CalendarUiState(
     val today: LocalDate,
     val month: YearMonth,
-    /** 固定 42 格（6 行 × 7 列），从周一开始。 */
+    /** 固定 42 格（6 行 × 7 列），从**周日**开始（与参考设计一致，见 `MonthGridLayout.WEEK_START`）。 */
     val days: List<CalendarDay>,
     val insight: CycleInsight,
     val periods: Map<LocalDate, FlowIntensity>,
@@ -47,6 +47,8 @@ data class CalendarUiState(
     val predictedDates: Set<LocalDate>,
     /** 用户填写的缺省值：预测卡需要它来说明"依据来自你填写，而不是算出来的"（ADR-0005）。 */
     val cycleDefaults: CycleDefaults,
+    /** 周期环要画的内容（本周期已走到的位置、经期日与排卵日的格号）。 */
+    val ring: CycleRingData,
     /** 记录面板正在编辑哪一天。面板是内联的，所以永远有值（默认"今天"）。 */
     val selectedDate: LocalDate,
     /**

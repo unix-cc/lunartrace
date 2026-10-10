@@ -246,6 +246,12 @@ class CalendarViewModel(
             entries = entriesByDate,
             predictedDates = predictedDates,
             cycleDefaults = defaults,
+            ring = CycleRingData.of(
+                prediction = insight.prediction,
+                position = insight.position,
+                periodDates = periodDates.keys,
+                today = todayDate,
+            ),
             selectedDate = selectedDate,
             record = record,
         )
